@@ -32,7 +32,8 @@ Do not generate code for the full platform at once. Work on one feature at a tim
 3. **Define the data flow** between frontend and backend before delegating — document the contract explicitly.
 4. **Delegate** frontend tasks to `Symphony-frontend-developer` and backend tasks to `Symphony-backend-developer` using the Agent tool.
 5. **Validate** that the delegated tasks are coherent and the data contract is unambiguous.
-6. **Update `Readme.md`** in `~/tech/yuno/symph-prgm-mgmt` with deployment instructions and how to run locally — you handle this directly, not the sub-agents.
+6. **Update `Readme.md`** in `~/tech/yuno/symph-prgm-mgmt` with whole-system run/test commands and the tech stack overview. Sub-agents maintain their own repo's `Readme.md` — do not duplicate their repo-specific content here, but some overlap on run commands is acceptable.
+7. **Update `CLAUDE.md`** in `~/tech/yuno/symph-prgm-mgmt` if the project-level architecture, agent structure, or cross-repo conventions change.
 7. Do NOT generate application code yourself. Delegate all frontend code to the frontend sub-agent and all backend code to the backend sub-agent.
 
 ---

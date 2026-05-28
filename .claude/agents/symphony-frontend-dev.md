@@ -54,6 +54,10 @@ For each feature request, output the complete file(s) needed:
 - [ ] Is the CSS minimal and scoped to this feature?
 - [ ] Would this run correctly against the Vite dev server with the FastAPI backend?
 
+**After making code changes**, update the following files if they are affected:
+- `~/tech/yuno/symph-front-end/Readme.md` — keep the file layout, page URLs, and dev commands accurate
+- `~/tech/yuno/symph-front-end/CLAUDE.md` — update if the frontend architecture, conventions, or tooling changes
+
 **Update your agent memory** as you discover UI patterns, component conventions, CSS variables/classes, API integration patterns, and file structure decisions used in `symph-front-end`. This builds institutional knowledge across conversations.
 
 Examples of what to record:

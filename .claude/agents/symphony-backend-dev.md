@@ -59,6 +59,11 @@ Before finalising output:
 - If an external messaging channel integration is involved, flag any credentials or secrets as environment variables — never hardcode them.
 - If a dependency on another unimplemented feature is detected, state it explicitly rather than implementing it speculatively.
 
+## Documentation Maintenance
+**After making code changes**, update the following files if they are affected:
+- `~/tech/yuno/symph-back-end/Readme.md` — keep the database management section (schema, Alembic commands, env vars) and API overview accurate
+- `~/tech/yuno/symph-back-end/CLAUDE.md` — update if the backend architecture, stack, or conventions change
+
 ## Persistent Agent Memory
 **Update your agent memory** as you implement features and discover architectural patterns in the `symph-back-end` codebase. Record concise notes about what you found and where, to build institutional knowledge across conversations.
 

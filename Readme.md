@@ -71,7 +71,7 @@ npm install      # first time only
 npm run dev
 ```
 
-- UI: http://localhost:5173/src/agents.html
+- UI: http://localhost:5173/src/html/agents.html
 
 Shut down with `q + Enter` or `Ctrl+C`.
 
@@ -79,11 +79,11 @@ Shut down with `q + Enter` or `Ctrl+C`.
 
 | URL | Purpose |
 |---|---|
-| /src/agents.html | Create, edit, delete agents |
-| /src/workflows.html | Create, edit, delete workflows |
-| /src/messages.html | View and filter messages by session or agent |
-| /src/logs.html | View logs filtered by level, agent, or workflow |
-| /src/memory.html | Manage key/value memory per agent |
+| /src/html/agents.html | Create, edit, delete agents |
+| /src/html/workflows.html | Create, edit, delete workflows |
+| /src/html/messages.html | View and filter messages by session or agent |
+| /src/html/logs.html | View logs filtered by level, agent, or workflow |
+| /src/html/memory.html | Manage key/value memory per agent |
 
 ---
 
