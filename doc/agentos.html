@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentOS — AI Agent Orchestration Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+:root {
+  --bg-base: #f5f4f0;
+  --bg-panel: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f9f8f6;
+  --bg-raised: #f1efe8;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.13);
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6b66;
+  --text-tertiary: #a0a09a;
+  --purple: #534AB7;
+  --purple-dim: #EEEDFE;
+  --purple-border: rgba(83,74,183,0.25);
+  --teal: #0F6E56;
+  --teal-dim: #E1F5EE;
+  --teal-border: rgba(15,110,86,0.25);
+  --blue: #185FA5;
+  --blue-dim: #E6F1FB;
+  --coral: #993C1D;
+  --coral-dim: #FAECE7;
+  --amber: #BA7517;
+  --amber-dim: #FAEEDA;
+  --green: #1D9E75;
+  --red: #A32D2D;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--font); background: var(--bg-base); color: var(--text-primary); overflow: hidden; font-size: 14px; }
+
+/* ── Shell ── */
+.shell { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: 52px 1fr; height: 100vh; }
+
+/* ── Topbar ── */
+.topbar {
+  grid-column: 1 / -1;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 16px;
+}
+.logo { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--text-primary); }
+.logo-icon { width: 28px; height: 28px; border-radius: 8px; background: #534AB7; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; }
+.top-tabs { display: flex; gap: 2px; margin-left: 24px; }
+.top-tab { padding: 5px 14px; font-size: 13px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); transition: all .15s; }
+.top-tab:hover { color: var(--text-primary); background: var(--bg-raised); }
+.top-tab.active { background: var(--bg-raised); color: var(--text-primary); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.status-pill { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #E1F5EE; border: 1px solid rgba(15,110,86,0.25); border-radius: 20px; font-size: 12px; color: #0F6E56; }
+.pulse { width: 6px; height: 6px; border-radius: 50%; background: #1D9E75; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(0.85)} }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: #EEEDFE; border: 1px solid rgba(83,74,183,0.25); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #534AB7; }
+
+/* ── Sidebar ── */
+.sidebar { background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 0; overflow-y: auto; }
+.nav-section { font-size: 10px; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 18px 5px; }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 18px; font-size: 13px; color: var(--text-secondary); cursor: pointer; transition: all .15s; border-right: 2px solid transparent; }
+.nav-item:hover { color: var(--text-primary); background: #F1EFE8; }
+.nav-item.active { color: #534AB7; background: #EEEDFE; border-right-color: #534AB7; }
+.nav-item i { font-size: 16px; }
+.nav-badge { margin-left: auto; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 10px; }
+.badge-green { background: #E1F5EE; color: #0F6E56; border: 1px solid rgba(15,110,86,0.2); }
+.badge-red { background: #FCEBEB; color: #A32D2D; }
+.sidebar-footer { margin-top: auto; padding: 16px 18px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.sf-avatar { width: 32px; height: 32px; border-radius: 50%; background: #EEEDFE; border: 1px solid rgba(83,74,183,0.25); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #534AB7; flex-shrink: 0; }
+.sf-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.sf-role { font-size: 11px; color: var(--text-tertiary); }
+
+/* ── Main area ── */
+.main { overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; background: var(--bg-base); }
+.page-header { display: flex; align-items: center; }
+.page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.4px; }
+.page-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-family: var(--font); font-weight: 500; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--bg-raised); color: var(--text-primary); cursor: pointer; transition: all .15s; }
+.btn:hover { background: var(--bg-raised); border-color: var(--border-strong); }
+.btn i { font-size: 15px; }
+.btn-primary { background: #534AB7; border-color: #534AB7; color: #fff; }
+.btn-primary:hover { background: #3C3489; }
+
+/* ── Metrics ── */
+.metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.metric-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; transition: border-color .2s; }
+.metric-card:hover { border-color: var(--border-strong); }
+.metric-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.metric-val { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+.metric-sub { font-size: 11px; margin-top: 4px; }
+.metric-sub.up { color: #1D9E75; }
+.metric-sub.warn { color: #BA7517; }
+.metric-sub.neutral { color: var(--text-tertiary); }
+
+/* ── Section header ── */
+.section-hdr { display: flex; align-items: center; gap: 10px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.section-badge { font-size: 10px; padding: 2px 8px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px; color: var(--text-secondary); }
+.tabs-mini { display: flex; gap: 2px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px; }
+.tab-mini { padding: 4px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; color: var(--text-tertiary); transition: all .15s; }
+.tab-mini.active { background: var(--bg-raised); color: var(--text-primary); }
+
+/* ── Agent cards ── */
+.agents-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.agent-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 16px; cursor: pointer; transition: all .2s;
+}
+.agent-card:hover { background: #fafaf8; border-color: var(--border-strong); transform: translateY(-1px); }
+.agent-card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.agent-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; }
+.agent-icon.purple { background: #EEEDFE; color: #534AB7; border: 1px solid rgba(83,74,183,0.2); }
+.agent-icon.teal { background: #E1F5EE; color: #0F6E56; border: 1px solid rgba(15,110,86,0.2); }
+.agent-icon.blue { background: #E6F1FB; color: #185FA5; border: 1px solid rgba(24,95,165,0.2); }
+.agent-icon.coral { background: #FAECE7; color: #993C1D; border: 1px solid rgba(153,60,29,0.2); }
+.agent-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.agent-role { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.agent-status { margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot.green { background: var(--green); }
+.dot.amber { background: var(--amber); }
+.dot.gray { background: var(--text-tertiary); }
+.agent-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+.tag { font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 4px; font-family: var(--mono); }
+.tag.purple { background: #EEEDFE; color: #3C3489; }
+.tag.teal { background: #E1F5EE; color: #085041; }
+.tag.blue { background: #E6F1FB; color: #0C447C; }
+.tag.gray { background: #F1EFE8; color: #444441; }
+.tag.amber { background: #FAEEDA; color: #633806; }
+.agent-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); }
+.channel-pills { display: flex; gap: 5px; }
+.ch-pill { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+.ch-pill.slack { background: #E6F1FB; color: #185FA5; }
+.ch-pill.telegram { background: #E1F5EE; color: #0F6E56; }
+.ch-pill.whatsapp { background: #EAF3DE; color: #3B6D11; }
+.ch-pill.internal { background: #F1EFE8; color: #888780; }
+.ch-pill i { font-size: 11px; }
+.agent-meta { font-size: 11px; color: var(--text-tertiary); }
+
+/* ── Workflow ── */
+.workflow-area { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.canvas-bg {
+  background:
+    radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px),
+    var(--bg-base);
+}
+.wf-track { display: flex; align-items: center; gap: 0; min-width: max-content; }
+.wf-node {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 10px 14px; text-align: center; min-width: 90px; cursor: pointer; transition: all .2s;
+  flex-shrink: 0;
+}
+.wf-node:hover { border-color: rgba(83,74,183,0.3); background: #fafaf8; }
+.wf-node.trigger { border-color: rgba(15,110,86,0.3); background: #E1F5EE; }
+.wf-node.coordinator { border-color: rgba(83,74,183,0.3); background: #EEEDFE; }
+.wf-node.output { border-color: rgba(24,95,165,0.3); background: #E6F1FB; }
+.wf-icon { font-size: 18px; margin-bottom: 4px; }
+.wf-label { font-size: 11px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.wf-sub { font-size: 10px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; }
+.wf-arrow { padding: 0 8px; color: var(--text-tertiary); font-size: 14px; display: flex; align-items: center; }
+.wf-parallel { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+
+/* ── Bottom panels ── */
+.bottom-row { display: grid; grid-template-columns: 1fr 300px; gap: 12px; }
+
+/* ── Logs ── */
+.logs-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.log-list { display: flex; flex-direction: column; gap: 3px; margin-top: 12px; }
+.log-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg-raised); border-radius: var(--radius-sm); font-family: var(--mono); font-size: 11px; transition: background .15s; }
+.log-row:hover { background: #e8e6de; }
+.log-time { color: var(--text-tertiary); flex-shrink: 0; min-width: 58px; }
+.log-agent { font-weight: 500; flex-shrink: 0; min-width: 88px; }
+.la-purple { color: #534AB7; }
+.la-teal { color: #0F6E56; }
+.la-blue { color: #185FA5; }
+.la-coral { color: #993C1D; }
+.log-msg { color: var(--text-secondary); flex: 1; font-family: var(--font); font-size: 12px; }
+.log-badge { flex-shrink: 0; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 500; font-family: var(--font); }
+.lb-ok { background: #EAF3DE; color: #3B6D11; }
+.lb-tool { background: #EEEDFE; color: #3C3489; }
+.lb-msg { background: #E6F1FB; color: #0C447C; }
+.lb-mem { background: #FAEEDA; color: #633806; }
+.lb-err { background: #FCEBEB; color: #791F1F; }
+
+/* ── Chat panel ── */
+.chat-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; }
+.chat-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.chat-h-icon { width: 32px; height: 32px; border-radius: 10px; background: #E6F1FB; border: 1px solid rgba(24,95,165,0.2); display: flex; align-items: center; justify-content: center; font-size: 15px; color: #185FA5; }
+.chat-h-name { font-size: 13px; font-weight: 600; }
+.chat-h-sub { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+.live-chip { margin-left: auto; display: flex; align-items: center; gap: 5px; padding: 3px 9px; background: #E1F5EE; border: 1px solid rgba(15,110,86,0.25); border-radius: 20px; font-size: 10px; font-weight: 500; color: #0F6E56; }
+.chat-msgs { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.bubble-row { display: flex; align-items: flex-end; gap: 7px; }
+.bubble-row.user { flex-direction: row-reverse; }
+.b-avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+.b-avatar.agent-av { background: #E6F1FB; color: #185FA5; }
+.b-avatar.user-av { background: #EEEDFE; color: #534AB7; }
+.bubble { padding: 8px 12px; border-radius: 12px; font-size: 12px; max-width: 210px; line-height: 1.5; }
+.bubble.agent-b { background: var(--bg-raised); color: var(--text-primary); border-bottom-left-radius: 3px; }
+.bubble.user-b { background: #534AB7; color: #fff; border-bottom-right-radius: 3px; }
+.b-time { font-size: 10px; color: var(--text-tertiary); margin-top: 2px; }
+.chat-input-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.chat-input-row input {
+  flex: 1; padding: 7px 12px; font-size: 12px; font-family: var(--font);
+  background: #F1EFE8; border: 1px solid var(--border-strong); border-radius: 20px;
+  color: var(--text-primary); outline: none; transition: border-color .15s;
+}
+.chat-input-row input:focus { border-color: #534AB7; }
+.chat-input-row input::placeholder { color: var(--text-tertiary); }
+.send-btn { width: 30px; height: 30px; border-radius: 50%; background: #534AB7; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-size: 13px; transition: background .15s; }
+.send-btn:hover { background: #3C3489; }
+
+/* ── Tab panels ── */
+.tab-content { display: none; }
+.tab-content.visible { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Agent config panel (modal-like) ── */
+.config-panel {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+}
+.config-panel.open { display: flex; }
+.config-box {
+  background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  width: 560px; max-height: 80vh; overflow-y: auto; padding: 24px; position: relative;
+}
+.config-close { position: absolute; top: 16px; right: 16px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 15px; }
+.config-close:hover { color: var(--text-primary); }
+.config-section { margin-top: 20px; }
+.config-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-tertiary); margin-bottom: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.form-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.form-label { font-size: 12px; color: var(--text-secondary); }
+.form-input {
+  padding: 8px 12px; background: #F5F4F0; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); color: var(--text-primary); font-size: 13px; font-family: var(--font);
+  outline: none; transition: border-color .15s;
+}
+.form-input:focus { border-color: #534AB7; }
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-select { padding: 8px 12px; background: #F5F4F0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 13px; font-family: var(--font); outline: none; appearance: none; cursor: pointer; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.toggle-label { font-size: 13px; color: var(--text-primary); }
+.toggle-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.toggle { position: relative; width: 36px; height: 20px; cursor: pointer; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track { position: absolute; inset: 0; background: #D3D1C7; border: 1px solid var(--border-strong); border-radius: 10px; transition: background .2s; }
+.toggle input:checked + .toggle-track { background: #534AB7; border-color: #534AB7; }
+.toggle-thumb { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; background: #fff; border-radius: 50%; transition: transform .2s; }
+.toggle input:checked ~ .toggle-thumb { transform: translateX(16px); }
+.tool-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tool-chip { display: flex; align-items: center; gap: 5px; padding: 5px 10px; background: #F1EFE8; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 11px; color: var(--text-secondary); cursor: pointer; transition: all .15s; }
+.tool-chip:hover { border-color: rgba(83,74,183,0.3); color: #534AB7; }
+.tool-chip.active { background: #EEEDFE; border-color: rgba(83,74,183,0.3); color: #534AB7; }
+.tool-chip i { font-size: 13px; }
+.config-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); justify-content: flex-end; }
+
+/* ── Workflow editor view ── */
+.wf-editor-canvas {
+  background:
+    radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px),
+    var(--bg-base);
+}
+.wf-nodes-builder { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; overflow-x: auto; }
+.wf-node-draggable { position: relative; }
+.add-node-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-raised); border: 1px dashed var(--border-strong); cursor: pointer; color: var(--text-tertiary); font-size: 16px; transition: all .15s; flex-shrink: 0; }
+.add-node-btn:hover { border-color: rgba(83,74,183,0.3); color: #534AB7; background: #EEEDFE; }
+
+/* ── Memory view ── */
+.memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mem-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
+.mem-key { font-size: 11px; font-family: var(--mono); color: var(--purple); margin-bottom: 6px; }
+.mem-val { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.mem-meta { font-size: 10px; color: var(--text-tertiary); margin-top: 8px; }
+
+/* ── Tools view ── */
+.tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tool-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all .15s; }
+.tool-card:hover { border-color: var(--border-strong); background: var(--bg-card-hover); }
+.tool-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tool-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.tool-name { font-size: 13px; font-weight: 500; }
+.tool-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.tool-status { display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; color: var(--text-secondary); }
+
+/* ── Notification toast ── */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 12px 16px; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; opacity: 0; transform: translateY(10px); transition: all .3s; z-index: 200; max-width: 280px; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast i { font-size: 16px; color: var(--teal); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon"><i class="ti ti-topology-star-3"></i></div>
+      AgentOS
+    </div>
+    <div class="top-tabs">
+      <div class="top-tab active" onclick="switchView('dashboard', this)">Dashboard</div>
+      <div class="top-tab" onclick="switchView('agents', this)">Agents</div>
+      <div class="top-tab" onclick="switchView('workflows', this)">Workflows</div>
+      <div class="top-tab" onclick="switchView('tools', this)">Tools</div>
+      <div class="top-tab" onclick="switchView('memory', this)">Memory</div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill"><span class="pulse"></span> 4 agents running</div>
+      <div class="avatar">JD</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="nav-section">Platform</div>
+    <div class="nav-item active" onclick="switchView('dashboard', null, this)"><i class="ti ti-layout-dashboard"></i> Overview</div>
+    <div class="nav-item" onclick="switchView('agents', null, this)"><i class="ti ti-robot"></i> My Agents</div>
+    <div class="nav-item" onclick="switchView('workflows', null, this)"><i class="ti ti-git-branch"></i> Workflows</div>
+    <div class="nav-item" onclick="switchView('memory', null, this)"><i class="ti ti-brain"></i> Memory Store</div>
+    <div class="nav-section" style="margin-top:8px">Channels</div>
+    <div class="nav-item" onclick="switchView('dashboard')"><i class="ti ti-brand-slack"></i> Slack <span class="nav-badge badge-green">Live</span></div>
+    <div class="nav-item" onclick="showToast('Telegram channel connected')"><i class="ti ti-brand-telegram"></i> Telegram</div>
+    <div class="nav-item" onclick="showToast('WhatsApp channel connected')"><i class="ti ti-brand-whatsapp"></i> WhatsApp</div>
+    <div class="nav-section" style="margin-top:8px">System</div>
+    <div class="nav-item" onclick="switchView('logs', null, this)"><i class="ti ti-activity"></i> Runtime Logs <span class="nav-badge badge-red">3</span></div>
+    <div class="nav-item" onclick="switchView('tools', null, this)"><i class="ti ti-plug"></i> Tool Registry</div>
+    <div class="nav-item" onclick="showToast('Settings panel coming soon')"><i class="ti ti-settings"></i> Settings</div>
+    <div class="sidebar-footer">
+      <div class="sf-avatar">JD</div>
+      <div><div class="sf-name">Jane Doe</div><div class="sf-role">Admin</div></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- DASHBOARD VIEW -->
+    <div id="view-dashboard" class="tab-content visible">
+      <div class="page-header">
+        <div><div class="page-title">Overview</div><div class="page-sub">Monday, 26 May 2025 · 09:14 AM</div></div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" onclick="openConfig('new')"><i class="ti ti-plus"></i> New Agent</button>
+          <button class="btn btn-primary" onclick="switchView('workflows')"><i class="ti ti-git-branch"></i> New Workflow</button>
+        </div>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-card"><div class="metric-label">Active agents</div><div class="metric-val">4</div><div class="metric-sub up">↑ 1 from yesterday</div></div>
+        <div class="metric-card"><div class="metric-label">Tasks completed</div><div class="metric-val">127</div><div class="metric-sub up">↑ 23 today</div></div>
+        <div class="metric-card"><div class="metric-label">Tool calls / hr</div><div class="metric-val">84</div><div class="metric-sub neutral">avg last 24h</div></div>
+        <div class="metric-card"><div class="metric-label">Error rate</div><div class="metric-val" style="color:#BA7517">1.2%</div><div class="metric-sub warn">↑ review 2 issues</div></div>
+      </div>
+
+      <div class="section-hdr">
+        <div class="section-title">Agents</div><div class="section-badge">4 total</div>
+        <div style="margin-left:auto"><div class="tabs-mini"><div class="tab-mini active">All</div><div class="tab-mini">Running</div><div class="tab-mini">Paused</div></div></div>
+      </div>
+
+      <div class="agents-grid">
+        <div class="agent-card" onclick="openConfig('coordinator')">
+          <div class="agent-card-head">
+            <div class="agent-icon purple"><i class="ti ti-robot"></i></div>
+            <div><div class="agent-name">Coordinator</div><div class="agent-role">Orchestrates sub-agents</div></div>
+            <div class="agent-status"><span class="dot green"></span><span style="color:var(--text-secondary);font-size:11px">Running</span></div>
+          </div>
+          <div class="agent-tags"><span class="tag purple">planner</span><span class="tag gray">claude-3-5-sonnet</span><span class="tag purple">long-term mem</span></div>
+          <div class="agent-footer">
+            <div class="channel-pills"><span class="ch-pill slack"><i class="ti ti-brand-slack"></i> Slack</span></div>
+            <div class="agent-meta">12 tools · 3 sub-agents</div>
+          </div>
+        </div>
+        <div class="agent-card" onclick="openConfig('researcher')">
+          <div class="agent-card-head">
+            <div class="agent-icon teal"><i class="ti ti-search"></i></div>
+            <div><div class="agent-name">Researcher</div><div class="agent-role">Web search & summarise</div></div>
+            <div class="agent-status"><span class="dot green"></span><span style="color:var(--text-secondary);font-size:11px">Running</span></div>
+          </div>
+          <div class="agent-tags"><span class="tag teal">researcher</span><span class="tag gray">claude-3-5-haiku</span><span class="tag teal">web search</span></div>
+          <div class="agent-footer">
+            <div class="channel-pills"><span class="ch-pill telegram"><i class="ti ti-brand-telegram"></i> Telegram</span></div>
+            <div class="agent-meta">4 tools · scheduled</div>
+          </div>
+        </div>
+        <div class="agent-card" onclick="openConfig('coder')">
+          <div class="agent-card-head">
+            <div class="agent-icon blue"><i class="ti ti-code"></i></div>
+            <div><div class="agent-name">Coder</div><div class="agent-role">Writes & executes code</div></div>
+            <div class="agent-status"><span class="dot amber"></span><span style="color:var(--text-secondary);font-size:11px">Busy</span></div>
+          </div>
+          <div class="agent-tags"><span class="tag blue">executor</span><span class="tag gray">gpt-4o</span><span class="tag blue">sandbox</span></div>
+          <div class="agent-footer">
+            <div class="channel-pills"><span class="ch-pill internal"><i class="ti ti-lock"></i> internal only</span></div>
+            <div class="agent-meta">6 tools · on-demand</div>
+          </div>
+        </div>
+        <div class="agent-card" onclick="openConfig('notifier')">
+          <div class="agent-card-head">
+            <div class="agent-icon coral"><i class="ti ti-bell"></i></div>
+            <div><div class="agent-name">Notifier</div><div class="agent-role">Sends alerts & reports</div></div>
+            <div class="agent-status"><span class="dot green"></span><span style="color:var(--text-secondary);font-size:11px">Running</span></div>
+          </div>
+          <div class="agent-tags"><span class="tag amber">notifier</span><span class="tag gray">gpt-4o-mini</span><span class="tag amber">scheduled</span></div>
+          <div class="agent-footer">
+            <div class="channel-pills"><span class="ch-pill whatsapp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</span></div>
+            <div class="agent-meta">3 tools · every 6h</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-hdr">
+        <div class="section-title">Active workflow</div>
+        <span style="font-size:12px;color:var(--text-secondary)">Daily research brief</span>
+        <button class="btn" style="font-size:11px;padding:5px 10px;margin-left:auto" onclick="switchView('workflows')"><i class="ti ti-edit"></i> Edit</button>
+      </div>
+
+      <div class="workflow-area">
+        <div class="canvas-bg">
+          <div class="wf-track">
+            <div class="wf-node trigger"><div class="wf-icon">⏰</div><div class="wf-label">Schedule</div><div class="wf-sub">08:00 daily</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node coordinator"><div class="wf-icon">🤖</div><div class="wf-label">Coordinator</div><div class="wf-sub">plans tasks</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-parallel">
+              <div class="wf-node"><div class="wf-icon">🔍</div><div class="wf-label">Researcher</div><div class="wf-sub">gather sources</div></div>
+              <div class="wf-node"><div class="wf-icon">💻</div><div class="wf-label">Coder</div><div class="wf-sub">run analysis</div></div>
+            </div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node coordinator"><div class="wf-icon">🤖</div><div class="wf-label">Coordinator</div><div class="wf-sub">synthesises</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node"><div class="wf-icon">🔔</div><div class="wf-label">Notifier</div><div class="wf-sub">delivers brief</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node output"><div class="wf-icon">💬</div><div class="wf-label">Slack out</div><div class="wf-sub">#briefings</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <div class="logs-panel">
+          <div class="section-hdr"><div class="section-title">Runtime log</div><span style="font-size:11px;color:var(--text-tertiary);margin-left:auto">live · last 5 events</span></div>
+          <div class="log-list" id="log-list">
+            <div class="log-row"><span class="log-time">09:12:34</span><span class="log-agent la-purple">Coordinator</span><span class="log-msg">dispatched research subtask to Researcher</span><span class="log-badge lb-ok">ok</span></div>
+            <div class="log-row"><span class="log-time">09:12:36</span><span class="log-agent la-teal">Researcher</span><span class="log-msg">web_search("AI policy 2025 EU")</span><span class="log-badge lb-tool">tool</span></div>
+            <div class="log-row"><span class="log-time">09:12:41</span><span class="log-agent la-blue">Coder</span><span class="log-msg">executed pandas script · 3.2s · 0 errors</span><span class="log-badge lb-ok">ok</span></div>
+            <div class="log-row"><span class="log-time">09:12:44</span><span class="log-agent la-teal">Researcher</span><span class="log-msg">stored 4 new facts → long-term memory</span><span class="log-badge lb-mem">mem</span></div>
+            <div class="log-row"><span class="log-time">09:12:50</span><span class="log-agent la-purple">Coordinator</span><span class="log-msg">user message via Slack from @jane</span><span class="log-badge lb-msg">msg</span></div>
+          </div>
+        </div>
+
+        <div class="chat-panel">
+          <div class="chat-header">
+            <div class="chat-h-icon"><i class="ti ti-brand-slack"></i></div>
+            <div><div class="chat-h-name">Coordinator</div><div class="chat-h-sub">via Slack · #ai-assistant</div></div>
+            <div class="live-chip"><span class="pulse"></span> live</div>
+          </div>
+          <div class="chat-msgs" id="chat-msgs">
+            <div class="bubble-row user">
+              <div class="b-avatar user-av">JD</div>
+              <div><div class="bubble user-b">What's in today's brief?</div><div class="b-time" style="text-align:right">09:12</div></div>
+            </div>
+            <div class="bubble-row">
+              <div class="b-avatar agent-av"><i class="ti ti-robot" style="font-size:11px"></i></div>
+              <div><div class="bubble agent-b">Gathering sources now — ready in ~2 min. I'll ping you when the report drops in #briefings.</div><div class="b-time">09:12</div></div>
+            </div>
+            <div class="bubble-row">
+              <div class="b-avatar agent-av"><i class="ti ti-robot" style="font-size:11px"></i></div>
+              <div><div class="bubble agent-b">🔍 Researcher found 8 sources on EU AI Act updates.</div><div class="b-time">09:13</div></div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Message Coordinator…" onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="send-btn" onclick="sendChat()"><i class="ti ti-send"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AGENTS VIEW -->
+    <div id="view-agents" class="tab-content">
+      <div class="page-header">
+        <div><div class="page-title">My Agents</div><div class="page-sub">Manage agent configurations, tools, and schedules</div></div>
+        <div style="margin-left:auto"><button class="btn btn-primary" onclick="openConfig('new')"><i class="ti ti-plus"></i> New Agent</button></div>
+      </div>
+      <div class="agents-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="agent-card" onclick="openConfig('coordinator')"><div class="agent-card-head"><div class="agent-icon purple"><i class="ti ti-robot"></i></div><div><div class="agent-name">Coordinator</div><div class="agent-role">Orchestrates sub-agents</div></div><div class="agent-status"><span class="dot green"></span><span style="color:var(--text-secondary);font-size:11px">Running</span></div></div><div class="agent-tags"><span class="tag purple">planner</span><span class="tag gray">claude-3-5-sonnet</span><span class="tag purple">long-term mem</span></div><div class="agent-footer"><div class="channel-pills"><span class="ch-pill slack"><i class="ti ti-brand-slack"></i> Slack</span></div><div class="agent-meta">12 tools · 3 sub-agents</div></div></div>
+        <div class="agent-card" onclick="openConfig('researcher')"><div class="agent-card-head"><div class="agent-icon teal"><i class="ti ti-search"></i></div><div><div class="agent-name">Researcher</div><div class="agent-role">Web search & summarise</div></div><div class="agent-status"><span class="dot green"></span><span style="color:var(--text-secondary);font-size:11px">Running</span></div></div><div class="agent-tags"><span class="tag teal">researcher</span><span class="tag gray">claude-3-5-haiku</span><span class="tag teal">web search</span></div><div class="agent-footer"><div class="channel-pills"><span class="ch-pill telegram"><i class="ti ti-brand-telegram"></i> Telegram</span></div><div class="agent-meta">4 tools · scheduled</div></div></div>
+        <div class="agent-card" onclick="openConfig('coder')"><div class="agent-card-head"><div class="agent-icon blue"><i class="ti ti-code"></i></div><div><div class="agent-name">Coder</div><div class="agent-role">Writes & executes code</div></div><div class="agent-status"><span class="dot amber"></span><span style="color:var(--text-secondary);font-size:11px">Busy</span></div></div><div class="agent-tags"><span class="tag blue">executor</span><span class="tag gray">gpt-4o</span><span class="tag blue">sandbox</span></div><div class="agent-footer"><div class="channel-pills"><span class="ch-pill internal"><i class="ti ti-lock"></i> internal</span></div><div class="agent-meta">6 tools · on-demand</div></div></div>
+        <div class="agent-card" onclick="openConfig('notifier')"><div class="agent-card-head"><div class="agent-icon coral"><i class="ti ti-bell"></i></div><div><div class="agent-name">Notifier</div><div class="agent-role">Sends alerts & reports</div></div><div class="agent-status"><span class="dot green"></span><span style="color:var(--text-secondary);font-size:11px">Running</span></div></div><div class="agent-tags"><span class="tag amber">notifier</span><span class="tag gray">gpt-4o-mini</span><span class="tag amber">scheduled</span></div><div class="agent-footer"><div class="channel-pills"><span class="ch-pill whatsapp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</span></div><div class="agent-meta">3 tools · every 6h</div></div></div>
+      </div>
+    </div>
+
+    <!-- WORKFLOWS VIEW -->
+    <div id="view-workflows" class="tab-content">
+      <div class="page-header">
+        <div><div class="page-title">Workflows</div><div class="page-sub">Build multi-agent pipelines with drag-and-drop</div></div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" onclick="showToast('Import workflow from JSON')"><i class="ti ti-upload"></i> Import</button>
+          <button class="btn btn-primary" onclick="showToast('New workflow canvas opened')"><i class="ti ti-plus"></i> New Workflow</button>
+        </div>
+      </div>
+      <div class="workflow-area">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div class="section-title">Daily research brief</div>
+          <div class="section-badge">Active</div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="showToast('Workflow saved')"><i class="ti ti-device-floppy"></i> Save</button>
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="showToast('Workflow triggered manually')"><i class="ti ti-player-play"></i> Run now</button>
+          </div>
+        </div>
+        <div class="wf-editor-canvas">
+          <div class="wf-nodes-builder">
+            <div class="wf-node trigger"><div class="wf-icon">⏰</div><div class="wf-label">Schedule</div><div class="wf-sub">08:00 daily</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node coordinator"><div class="wf-icon">🤖</div><div class="wf-label">Coordinator</div><div class="wf-sub">plans tasks</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-parallel">
+              <div class="wf-node"><div class="wf-icon">🔍</div><div class="wf-label">Researcher</div><div class="wf-sub">gather sources</div></div>
+              <div class="wf-node"><div class="wf-icon">💻</div><div class="wf-label">Coder</div><div class="wf-sub">run analysis</div></div>
+            </div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node coordinator"><div class="wf-icon">🤖</div><div class="wf-label">Coordinator</div><div class="wf-sub">synthesises</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node"><div class="wf-icon">🔔</div><div class="wf-label">Notifier</div><div class="wf-sub">delivers brief</div></div>
+            <div class="wf-arrow"><i class="ti ti-arrow-right"></i></div>
+            <div class="wf-node output"><div class="wf-icon">💬</div><div class="wf-label">Slack out</div><div class="wf-sub">#briefings</div></div>
+            <div class="wf-arrow"></div>
+            <div class="add-node-btn" onclick="showToast('Node picker opened')"><i class="ti ti-plus"></i></div>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+        <div class="section-title" style="margin-bottom:12px">Other workflows</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-base);border-radius:var(--radius-sm);cursor:pointer" onclick="showToast('Opened: Incident responder workflow')">
+            <i class="ti ti-alert-triangle" style="color:#BA7517;font-size:16px"></i>
+            <div><div style="font-size:13px;font-weight:500">Incident responder</div><div style="font-size:11px;color:var(--text-secondary)">Triggered by PagerDuty alert · 3 agents</div></div>
+            <span class="section-badge" style="margin-left:auto">Paused</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-base);border-radius:var(--radius-sm);cursor:pointer" onclick="showToast('Opened: Customer support triage workflow')">
+            <i class="ti ti-messages" style="color:#0F6E56;font-size:16px"></i>
+            <div><div style="font-size:13px;font-weight:500">Customer support triage</div><div style="font-size:11px;color:var(--text-secondary)">Triggered by Zendesk ticket · 2 agents</div></div>
+            <span class="section-badge" style="margin-left:auto;background:#E1F5EE;color:#0F6E56;border-color:rgba(15,110,86,0.25)">Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOLS VIEW -->
+    <div id="view-tools" class="tab-content">
+      <div class="page-header">
+        <div><div class="page-title">Tool Registry</div><div class="page-sub">Connect APIs, scripts, and data sources</div></div>
+        <div style="margin-left:auto"><button class="btn btn-primary" onclick="showToast('Tool installer opened')"><i class="ti ti-plus"></i> Add Tool</button></div>
+      </div>
+      <div class="tools-grid">
+        <div class="tool-card" onclick="showToast('Configured: Web Search')"><div class="tool-card-head"><div class="tool-icon" style="background:var(--blue-dim);color:var(--blue)"><i class="ti ti-world-search"></i></div><div class="tool-name">Web Search</div></div><div class="tool-desc">Search the web using Brave/SerpAPI and return structured results.</div><div class="tool-status"><span class="dot green"></span> Connected · used by 2 agents</div></div>
+        <div class="tool-card" onclick="showToast('Configured: Code Sandbox')"><div class="tool-card-head"><div class="tool-icon" style="background:var(--purple-dim);color:var(--purple)"><i class="ti ti-terminal-2"></i></div><div class="tool-name">Code Sandbox</div></div><div class="tool-desc">Execute Python and JS in an isolated container with stdout capture.</div><div class="tool-status"><span class="dot green"></span> Connected · used by 1 agent</div></div>
+        <div class="tool-card" onclick="showToast('Configured: Email')"><div class="tool-card-head"><div class="tool-icon" style="background:var(--coral-dim);color:var(--coral)"><i class="ti ti-mail"></i></div><div class="tool-name">Email (SMTP)</div></div><div class="tool-desc">Send and read email via SMTP/IMAP. Supports attachments and HTML.</div><div class="tool-status"><span class="dot green"></span> Connected · used by 1 agent</div></div>
+        <div class="tool-card" onclick="showToast('Configured: Slack API')"><div class="tool-card-head"><div class="tool-icon" style="background:var(--blue-dim);color:var(--blue)"><i class="ti ti-brand-slack"></i></div><div class="tool-name">Slack API</div></div><div class="tool-desc">Post messages, read channels, and manage threads in Slack workspaces.</div><div class="tool-status"><span class="dot green"></span> Connected · used by 2 agents</div></div>
+        <div class="tool-card" onclick="showToast('Configured: PostgreSQL')"><div class="tool-card-head"><div class="tool-icon" style="background:#E1F5EE;color:#0F6E56"><i class="ti ti-database"></i></div><div class="tool-name">PostgreSQL</div></div><div class="tool-desc">Run read/write queries against your database with schema introspection.</div><div class="tool-status"><span class="dot amber"></span> Limited · 1 agent</div></div>
+        <div class="tool-card" onclick="showToast('Configured: File System')"><div class="tool-card-head"><div class="tool-icon" style="background:var(--amber-dim);color:#BA7517"><i class="ti ti-folder"></i></div><div class="tool-name">File System</div></div><div class="tool-desc">Read, write, and manage files in a sandboxed workspace directory.</div><div class="tool-status"><span class="dot gray"></span> Not connected</div></div>
+      </div>
+    </div>
+
+    <!-- MEMORY VIEW -->
+    <div id="view-memory" class="tab-content">
+      <div class="page-header">
+        <div><div class="page-title">Memory Store</div><div class="page-sub">Long-term, working, and episodic memory across agents</div></div>
+        <div style="margin-left:auto"><button class="btn" onclick="showToast('Memory cleared for selected agent')"><i class="ti ti-trash"></i> Clear</button></div>
+      </div>
+      <div class="section-hdr"><div class="section-title">Coordinator · long-term memory</div><div class="section-badge">14 entries</div></div>
+      <div class="memory-grid">
+        <div class="mem-card"><div class="mem-key">user.preferences.format</div><div class="mem-val">Jane prefers bullet-point summaries under 200 words with a TLDR at the top.</div><div class="mem-meta">Updated 2h ago · source: conversation</div></div>
+        <div class="mem-card"><div class="mem-key">topic.EU_AI_Act.status</div><div class="mem-val">EU AI Act entered into force Aug 2024. High-risk AI systems must comply by 2026.</div><div class="mem-meta">Updated 1d ago · source: Researcher</div></div>
+        <div class="mem-card"><div class="mem-key">project.briefings.channel</div><div class="mem-val">Daily briefs are sent to Slack #briefings and WhatsApp group "Exec AI digest".</div><div class="mem-meta">Updated 3d ago · source: config</div></div>
+        <div class="mem-card"><div class="mem-key">agent.researcher.last_run</div><div class="mem-val">Last successful run: 09:12:44 today. Fetched 8 sources, stored 4 facts.</div><div class="mem-meta">Updated 14min ago · source: runtime</div></div>
+        <div class="mem-card"><div class="mem-key">topic.competitor.OpenAI</div><div class="mem-val">OpenAI launched GPT-5 in April 2025. Multimodal, 1M context window. Relevant to briefings.</div><div class="mem-meta">Updated 4d ago · source: Researcher</div></div>
+        <div class="mem-card"><div class="mem-key">system.error.last</div><div class="mem-val">Coder agent timed out on numpy install at 08:55. Auto-retried and succeeded at 08:57.</div><div class="mem-meta">Updated 17min ago · source: runtime</div></div>
+      </div>
+    </div>
+
+    <!-- LOGS VIEW -->
+    <div id="view-logs" class="tab-content">
+      <div class="page-header">
+        <div><div class="page-title">Runtime Logs</div><div class="page-sub">Real-time execution trace across all agents</div></div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" onclick="showToast('Logs exported to JSON')"><i class="ti ti-download"></i> Export</button>
+          <button class="btn" onclick="clearLogs()"><i class="ti ti-trash"></i> Clear</button>
+        </div>
+      </div>
+      <div class="logs-panel" style="max-height:420px;overflow-y:auto">
+        <div class="log-list" id="full-log-list">
+          <div class="log-row"><span class="log-time">09:12:34</span><span class="log-agent la-purple">Coordinator</span><span class="log-msg">dispatched research subtask to Researcher</span><span class="log-badge lb-ok">ok</span></div>
+          <div class="log-row"><span class="log-time">09:12:36</span><span class="log-agent la-teal">Researcher</span><span class="log-msg">web_search("AI policy 2025 EU")</span><span class="log-badge lb-tool">tool</span></div>
+          <div class="log-row"><span class="log-time">09:12:38</span><span class="log-agent la-teal">Researcher</span><span class="log-msg">fetched 12 results, scoring relevance...</span><span class="log-badge lb-ok">ok</span></div>
+          <div class="log-row"><span class="log-time">09:12:41</span><span class="log-agent la-blue">Coder</span><span class="log-msg">executed pandas script · 3.2s · 0 errors</span><span class="log-badge lb-ok">ok</span></div>
+          <div class="log-row"><span class="log-time">09:12:42</span><span class="log-agent la-blue">Coder</span><span class="log-msg">output: {"rows":142,"nulls":0,"chart":"bar"}</span><span class="log-badge lb-tool">tool</span></div>
+          <div class="log-row"><span class="log-time">09:12:44</span><span class="log-agent la-teal">Researcher</span><span class="log-msg">stored 4 new facts → long-term memory</span><span class="log-badge lb-mem">mem</span></div>
+          <div class="log-row"><span class="log-time">09:12:50</span><span class="log-agent la-purple">Coordinator</span><span class="log-msg">user message via Slack from @jane</span><span class="log-badge lb-msg">msg</span></div>
+          <div class="log-row"><span class="log-time">09:12:52</span><span class="log-agent la-purple">Coordinator</span><span class="log-msg">replied to @jane: "Gathering sources now..."</span><span class="log-badge lb-ok">ok</span></div>
+          <div class="log-row"><span class="log-time">09:13:10</span><span class="log-agent la-coral">Notifier</span><span class="log-msg">scheduled heartbeat check passed</span><span class="log-badge lb-ok">ok</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Agent Config Panel -->
+<div class="config-panel" id="config-panel" onclick="closeConfigOutside(event)">
+  <div class="config-box" id="config-box">
+    <div class="config-close" onclick="closeConfig()"><i class="ti ti-x"></i></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+      <div class="agent-icon purple" id="cfg-icon"><i class="ti ti-robot"></i></div>
+      <div><div class="page-title" id="cfg-title">Coordinator</div><div class="page-sub" id="cfg-role">Orchestrates sub-agents</div></div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">Identity</div>
+      <div class="form-row">
+        <div class="form-field"><div class="form-label">Agent name</div><input class="form-input" id="cfg-name" value="Coordinator"></div>
+        <div class="form-field"><div class="form-label">Model</div><select class="form-input form-select"><option selected>claude-3-5-sonnet-20241022</option><option>claude-3-5-haiku-20241022</option><option>gpt-4o</option><option>gpt-4o-mini</option></select></div>
+      </div>
+      <div class="form-field"><div class="form-label">System prompt / personality</div><textarea class="form-input form-textarea" id="cfg-prompt">You are the Coordinator agent. Your job is to plan and delegate tasks to sub-agents (Researcher, Coder, Notifier). Always break complex requests into parallel subtasks where possible. Be concise and direct in your responses to the user.</textarea></div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">Tools</div>
+      <div class="tool-chips">
+        <div class="tool-chip active" onclick="this.classList.toggle('active')"><i class="ti ti-world-search"></i> web_search</div>
+        <div class="tool-chip active" onclick="this.classList.toggle('active')"><i class="ti ti-terminal-2"></i> code_exec</div>
+        <div class="tool-chip active" onclick="this.classList.toggle('active')"><i class="ti ti-database"></i> memory_read</div>
+        <div class="tool-chip active" onclick="this.classList.toggle('active')"><i class="ti ti-database-plus"></i> memory_write</div>
+        <div class="tool-chip active" onclick="this.classList.toggle('active')"><i class="ti ti-brand-slack"></i> slack_send</div>
+        <div class="tool-chip" onclick="this.classList.toggle('active')"><i class="ti ti-mail"></i> email_send</div>
+        <div class="tool-chip" onclick="this.classList.toggle('active')"><i class="ti ti-folder"></i> file_read</div>
+        <div class="tool-chip" onclick="this.classList.toggle('active')"><i class="ti ti-clock"></i> schedule</div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">Behaviour</div>
+      <div class="toggle-row"><div><div class="toggle-label">Long-term memory</div><div class="toggle-sub">Persist facts across sessions</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="toggle-row"><div><div class="toggle-label">Max token limit</div><div class="toggle-sub">Stop after 16 000 tokens per run</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="toggle-row"><div><div class="toggle-label">Human-in-the-loop</div><div class="toggle-sub">Ask for confirmation before tool calls</div></div><label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+      <div class="toggle-row"><div><div class="toggle-label">Verbose logging</div><div class="toggle-sub">Log all internal reasoning steps</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">External channel</div>
+      <div class="form-row">
+        <div class="form-field"><div class="form-label">Channel type</div><select class="form-input form-select"><option>Slack</option><option>Telegram</option><option>WhatsApp</option><option>None</option></select></div>
+        <div class="form-field"><div class="form-label">Channel / number</div><input class="form-input" value="#ai-assistant"></div>
+      </div>
+    </div>
+
+    <div class="config-actions">
+      <button class="btn" onclick="closeConfig()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveConfig()"><i class="ti ti-device-floppy"></i> Save agent</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"><i class="ti ti-check"></i><span id="toast-msg">Saved</span></div>
+
+<script>
+let currentView = 'dashboard';
+
+function switchView(view, topTabEl, sideTabEl) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('visible'));
+  const target = document.getElementById('view-' + view);
+  if (target) target.classList.add('visible');
+  currentView = view;
+
+  if (topTabEl) {
+    document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('active'));
+    topTabEl.classList.add('active');
+  }
+  if (sideTabEl) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    sideTabEl.classList.add('active');
+  }
+}
+
+const configs = {
+  coordinator: { title: 'Coordinator', role: 'Orchestrates sub-agents', icon: 'purple', prompt: 'You are the Coordinator agent. Plan and delegate tasks to sub-agents. Be concise and direct.' },
+  researcher: { title: 'Researcher', role: 'Web search & summarise', icon: 'teal', prompt: 'You are the Researcher agent. Search the web and return structured summaries with source URLs.' },
+  coder: { title: 'Coder', role: 'Writes & executes code', icon: 'blue', prompt: 'You are the Coder agent. Write and execute Python/JS code in a sandbox. Always return stdout and errors.' },
+  notifier: { title: 'Notifier', role: 'Sends alerts & reports', icon: 'coral', prompt: 'You are the Notifier agent. Send formatted Markdown reports to configured messaging channels.' },
+  new: { title: 'New Agent', role: 'Define role and capabilities', icon: 'gray', prompt: '' }
+};
+
+function openConfig(id) {
+  const cfg = configs[id] || configs.new;
+  document.getElementById('cfg-title').textContent = cfg.title;
+  document.getElementById('cfg-role').textContent = cfg.role;
+  document.getElementById('cfg-name').value = cfg.title;
+  document.getElementById('cfg-prompt').value = cfg.prompt;
+  const icon = document.getElementById('cfg-icon');
+  icon.className = 'agent-icon ' + cfg.icon;
+  document.getElementById('config-panel').classList.add('open');
+}
+function closeConfig() { document.getElementById('config-panel').classList.remove('open'); }
+function closeConfigOutside(e) { if (e.target.id === 'config-panel') closeConfig(); }
+function saveConfig() { closeConfig(); showToast('Agent configuration saved'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  const msgs = document.getElementById('chat-msgs');
+  const now = new Date();
+  const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
+  msgs.innerHTML += `<div class="bubble-row user"><div class="b-avatar user-av">JD</div><div><div class="bubble user-b">${msg}</div><div class="b-time" style="text-align:right">${time}</div></div></div>`;
+  input.value = '';
+  msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(() => {
+    const replies = ['On it — I'll get back to you shortly.', 'Understood. Checking with sub-agents now...', 'I've queued that task. Researcher is already on it.', 'Let me look into that and report back.'];
+    const reply = replies[Math.floor(Math.random() * replies.length)];
+    msgs.innerHTML += `<div class="bubble-row"><div class="b-avatar agent-av"><i class="ti ti-robot" style="font-size:11px"></i></div><div><div class="bubble agent-b">${reply}</div><div class="b-time">${time}</div></div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 900);
+}
+
+function clearLogs() {
+  document.getElementById('full-log-list').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary);padding:12px">No logs yet.</div>';
+  showToast('Logs cleared');
+}
+
+// Simulate live log entry every ~8s
+const logEntries = [
+  {time:'', agent:'Researcher', cls:'la-teal', msg:'web_search("semiconductor export controls 2025")', badge:'lb-tool'},
+  {time:'', agent:'Coordinator', cls:'la-purple', msg:'all sub-agents complete · synthesising output', badge:'lb-ok'},
+  {time:'', agent:'Notifier', cls:'la-coral', msg:'report dispatched to WhatsApp group', badge:'lb-msg'},
+  {time:'', agent:'Coder', cls:'la-blue', msg:'generated chart · saved to /workspace/chart.png', badge:'lb-ok'},
+];
+setInterval(() => {
+  const entry = logEntries[Math.floor(Math.random() * logEntries.length)];
+  const now = new Date();
+  entry.time = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+  const row = `<div class="log-row"><span class="log-time">${entry.time}</span><span class="log-agent ${entry.cls}">${entry.agent}</span><span class="log-msg">${entry.msg}</span><span class="log-badge ${entry.badge}">${entry.badge.replace('lb-','')}</span></div>`;
+  const list = document.getElementById('log-list');
+  if (list) { list.insertAdjacentHTML('afterbegin', row); if (list.children.length > 6) list.lastElementChild.remove(); }
+  const flist = document.getElementById('full-log-list');
+  if (flist && currentView === 'logs') { flist.insertAdjacentHTML('afterbegin', row); }
+}, 8000);
+</script>
+</body>
+</html>
