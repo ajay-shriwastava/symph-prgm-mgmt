@@ -1,3 +1,16 @@
+  # 1. Create the database
+  psql -U postgres -c "CREATE DATABASE orchestra;"
+
+  # 2. Backend
+  cd ~/tech/yuno/orch-back-end && workon orchestra
+  pip install -r requirements.txt
+  alembic upgrade head
+  fastapi dev app/main.py        # → http://127.0.0.1:8000/docs
+
+  # 3. Frontend (new terminal)
+  cd ~/tech/yuno/orca-front-end && npm install && npm run dev
+  # → http://localhost:5173/src/agents.html
+
 SELECT datname FROM pg_database WHERE datistemplate = false;
 
 SELECT table_name 
@@ -13,7 +26,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/messages \
     -H "Authorization: Bearer test" \
     -H "Content-Type: application/json" \
     -d '{
-      "agent_id": "88344ceb-c0c4-453b-990e-86258a89a106",
+      "agent_id": "039447ec-ffcc-452a-bba0-3ba384c0a6e7",
       "session_id": "00000000-0000-0000-0000-000000000001",
       "role": "user",
       "content": "Hello, what can you do?"
@@ -26,7 +39,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/logs \
     -d '{
       "level": "INFO",
       "message": "Agent started successfully",
-      "agent_id": "88344ceb-c0c4-453b-990e-86258a89a106",
+      "agent_id": "039447ec-ffcc-452a-bba0-3ba384c0a6e7",
       "metadata": {"duration_ms": 42}
     }'
 

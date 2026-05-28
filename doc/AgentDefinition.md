@@ -6,8 +6,7 @@
 3. Creation Method
     Generate with LLM (Recommended)
     Manual Configuration
-4. Description
-    Describe what this agent should do and when should it be used
+4. isnt what this agent should do and when should it be used
 5. Build Context and Permissions 
 6. Select Tools
 - All Tools
