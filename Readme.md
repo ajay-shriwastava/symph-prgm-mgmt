@@ -11,7 +11,8 @@ Vite frontend + FastAPI backend + PostgreSQL database.
 | Frontend | Vanilla HTML + CSS + JavaScript, served by Vite |
 | Backend | FastAPI (Python 3.11+), async SQLAlchemy 2, Alembic |
 | Database | PostgreSQL (asyncpg driver) |
-| Agent runtime | LangGraph (integrated into FastAPI services) |
+| Agent runtime | LangGraph + langchain-anthropic (integrated into FastAPI services) |
+| Real-time | FastAPI WebSocket endpoints, ConnectionManager pattern (`app/ws_manager.py`) |
 
 ---
 
@@ -43,7 +44,14 @@ workon symphony
 pip install -r requirements.txt
 ```
 
-#### Run Alembic migration (creates all tables)
+#### Install new dependencies (after pulling latest)
+
+```bash
+workon symphony
+pip install -r requirements.txt
+```
+
+#### Run Alembic migration (creates all tables, including workflow_runs)
 
 ```bash
 workon symphony
@@ -104,9 +112,24 @@ Auth is currently a stub — any non-empty token is accepted.
 |---|---|
 | Agents | GET/POST `/api/v1/agents`, GET/PUT/DELETE `/api/v1/agents/{id}` |
 | Workflows | GET/POST `/api/v1/workflows`, GET/PUT/DELETE `/api/v1/workflows/{id}` |
+| Workflow Runs | POST `/api/v1/workflows/{id}/run`, GET `/api/v1/workflows/{id}/runs`, GET `/api/v1/workflows/{id}/runs/{run_id}` |
 | Messages | GET/POST `/api/v1/messages`, GET/DELETE `/api/v1/messages/{id}` |
 | Logs | GET/POST `/api/v1/logs`, GET `/api/v1/logs/{id}` |
 | Agent Memory | GET/POST `/api/v1/agents/{id}/memory`, GET/DELETE `/api/v1/agents/{id}/memory/{key}` |
+
+### WebSocket
+
+| Resource | URL |
+|---|---|
+| Run event stream | `ws://127.0.0.1:8000/ws/workflows/{workflow_id}/runs/{run_id}?token=<jwt>` |
+
+Events: `node_enter`, `node_complete`, `edge_traverse`, `run_complete`, `run_error`
+
+### Environment Variables (additional)
+
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Required for LangGraph agent nodes to call Claude via langchain-anthropic |
 
 ---
 
