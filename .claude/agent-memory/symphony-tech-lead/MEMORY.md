@@ -17,7 +17,7 @@ app/
   dependencies.py    — get_current_user (JWT stub)
   models/            — SQLAlchemy ORM models, __init__.py imports all for Alembic
   schemas/           — Pydantic request/response schemas
-  routers/           — APIRouter handlers (agents, workflows, messages, logs, workflow_runs)
+  routers/           — APIRouter handlers (agents, agent_config, workflows, messages, logs, workflow_runs)
   ws_manager.py      — ConnectionManager: connect/disconnect/broadcast per run_id
   workflow_runner.py — WorkflowRunner.compile() + run_workflow() async function
 alembic/
@@ -32,7 +32,7 @@ requirements.txt
 - Log ORM uses `metadata_` (column alias `metadata`) to avoid SQLAlchemy reserved name conflict. Router manually maps it to `LogOut`.
 - AgentMemory upsert: PostgreSQL `INSERT ... ON CONFLICT (agent_id, key) DO UPDATE` via `sqlalchemy.dialects.postgresql.insert`.
 - All list endpoints return `{ items, total, skip, limit }` envelope.
-- Alembic: `0001_initial_schema.py` creates all 5 original tables. `0003` adds workflow.status + workflow_runs table.
+- Alembic: `0001_initial_schema.py` creates all 5 original tables. `0003` adds workflow.status + workflow_runs table. `0004` adds skills/interaction_rules/guardrails JSONB columns to agents + creates agent_schedules table.
 - WebSocket routes need a SEPARATE APIRouter with no prefix (`ws_router`). Export it from the router module and register it in main.py separately. Do NOT put `@router.websocket` on a prefixed APIRouter.
 - Background tasks needing DB access: use `asyncio.create_task()` with a new `async with AsyncSessionLocal() as bg_db` — never reuse the request-scoped `db` session after it closes.
 - workflow_runs router exports two objects: `router` (prefix `/api/v1/workflows`) and `ws_router` (no prefix, WebSocket at `/ws/workflows/{wf_id}/runs/{run_id}`).
@@ -50,6 +50,7 @@ requirements.txt
 
 - **persistence-layer** (2026-05-27): Full CRUD for Agent, Workflow, Message, Log, AgentMemory. PostgreSQL + Alembic + async SQLAlchemy. Frontend tabular views with pagination, inline forms, toast errors.
 - **visual-workflow-builder** (2026-05-28): SVG canvas with drag-drop nodes (start/agent/condition/end), cubic bezier edges with arrowheads, config panel, LangGraph runner, WebSocket run streaming, run history panel. Migration 0003 adds `workflow.status` column + `workflow_runs` table.
+- **agent-configuration** (2026-05-29): Expanded memory.html into 5-tab Agent Config page (Memory, Schedules, Skills, Interaction Rules, Guardrails). Migration 0004 adds 3 JSONB columns to agents + agent_schedules table. New router: `app/routers/agent_config.py`. Nav label "Memory" renamed to "Config". AgentOut schema extended with skills/interaction_rules/guardrails fields.
 
 ## API Naming Convention
 

@@ -91,7 +91,7 @@ Shut down with `q + Enter` or `Ctrl+C`.
 | /src/html/workflows.html | Create, edit, delete workflows |
 | /src/html/messages.html | View and filter messages by session or agent |
 | /src/html/logs.html | View logs filtered by level, agent, or workflow |
-| /src/html/memory.html | Manage key/value memory per agent |
+| /src/html/memory.html | Agent Configuration: Memory, Schedules, Skills, Interaction Rules, Guardrails |
 
 ---
 
@@ -116,6 +116,10 @@ Auth is currently a stub — any non-empty token is accepted.
 | Messages | GET/POST `/api/v1/messages`, GET/DELETE `/api/v1/messages/{id}` |
 | Logs | GET/POST `/api/v1/logs`, GET `/api/v1/logs/{id}` |
 | Agent Memory | GET/POST `/api/v1/agents/{id}/memory`, GET/DELETE `/api/v1/agents/{id}/memory/{key}` |
+| Agent Schedules | GET/POST `/api/v1/agents/{id}/schedules`, PUT/DELETE `/api/v1/agents/{id}/schedules/{schedule_id}` |
+| Agent Skills | PUT `/api/v1/agents/{id}/skills` |
+| Interaction Rules | PUT `/api/v1/agents/{id}/interaction-rules` |
+| Guardrails | PUT `/api/v1/agents/{id}/guardrails` |
 
 ### WebSocket
 
