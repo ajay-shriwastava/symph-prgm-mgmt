@@ -104,6 +104,81 @@ curl -X POST http://127.0.0.1:8000/api/v1/logs \
 
 ---
 
+## pgAdmin — Connecting to the Symphony Database
+
+pgAdmin is the recommended GUI for inspecting database state during demos and testing.
+
+### Install pgAdmin (one-time)
+
+Download from https://www.pgadmin.org/download/ and install the macOS `.dmg`, or install via Homebrew:
+
+```bash
+brew install --cask pgadmin4
+```
+
+### Launch pgAdmin
+
+Open **Finder → Applications → pgAdmin 4** and double-click to launch.
+
+### Register the Symphony server (one-time setup)
+
+1. In the pgAdmin sidebar, right-click **Servers → Register → Server**
+2. **General tab** — Name: `Symphony Local`
+3. **Connection tab**:
+   - Host: `localhost`
+   - Port: `5432`
+   - Maintenance database: `postgres`
+   - Username: `postgres`
+   - Password: `postgres` (or your local postgres password)
+4. Click **Save**
+
+### Navigate to the Symphony database
+
+In the sidebar, expand:
+
+```
+Servers → Symphony Local → Databases → symphony → Schemas → public → Tables
+```
+
+Right-click any table → **View/Edit Data → All Rows** to inspect its contents.
+
+### Useful queries (Query Tool)
+
+Open the Query Tool via **Tools → Query Tool**, then run:
+
+```sql
+-- List all tables
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
+
+-- Agents
+SELECT id, name, model, channels, status FROM agents;
+
+-- Workflows and their graph definitions
+SELECT id, name, status, graph_definition FROM workflows;
+
+-- Workflow runs
+SELECT id, workflow_id, status, started_at, finished_at FROM workflow_runs ORDER BY started_at DESC;
+
+-- Recent messages (including Slack)
+SELECT id, agent_id, session_id, role, LEFT(content, 80) AS content, created_at
+FROM messages ORDER BY created_at DESC LIMIT 20;
+
+-- Logs
+SELECT id, level, message, agent_id, created_at FROM logs ORDER BY created_at DESC LIMIT 20;
+
+-- Reset a stuck workflow run
+UPDATE workflow_runs SET status = 'failed', error = 'manually reset' WHERE status = 'running';
+```
+
+### Make sure PostgreSQL is running
+
+```bash
+brew services list | grep postgresql     # check status
+brew services restart postgresql         # restart if needed
+```
+
+---
+
 ## Visual Workflow Builder — Testing Instructions
 
 ### Prerequisites
@@ -160,12 +235,112 @@ The **Run History** collapsible section at the bottom lists the run with a `comp
 5. Save and Run — the loop runs up to 5 times then exits automatically via `condition_result = True`
 
 ### Step 8 — Verify in pgAdmin
-Connect to the `symphony` database and check:
+Open pgAdmin (see **pgAdmin — Connecting to the Symphony Database** above) and run:
 
   SELECT * FROM workflows;        -- graph_definition JSONB, status = 'draft'
   SELECT * FROM workflow_runs;    -- status, output JSONB, started_at, finished_at
 
+---
+
+## LangSmith — Viewing Traces
+
+LangSmith gives you a live view of every LLM call Symphony makes — prompts, responses, token usage, cost, and latency. No code changes are needed; it activates via environment variables.
+
+### Prerequisites
+
+- `LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT=symphony` set in `symph-back-end/.env` (see Readme for setup)
+- Backend running: `workon symphony && fastapi dev app/main.py`
+
+### Step 1 — Open LangSmith
+
+Go to [smith.langchain.com](https://smith.langchain.com) and sign in.
+
+### Step 2 — Select the Symphony project
+
+In the left sidebar, click **Projects** and select **symphony**. If it doesn't appear yet, trigger a trace first (run a workflow or send a Slack message) — LangSmith creates the project on the first trace.
+
+### Step 3 — View traces
+
+Click the **Traces** tab. Each row is one traced run, showing:
+- Run name and status (success / error)
+- Model used
+- Total tokens and estimated cost
+- Latency
+
+### Step 4 — Inspect a trace
+
+Click any row to open the full trace detail:
+- **Tree view** — each LangGraph node is a collapsible step; expand to see the exact prompt and response for that node
+- **Metadata** — run ID, timestamps, token breakdown (input / output / total)
+- **Feedback** — you can manually annotate runs with thumbs up/down for evaluation
+
+### Step 5 — Trigger a workflow trace
+
+1. Open http://localhost:5173/src/html/workflows.html
+2. Run any workflow that includes an **Agent** node
+3. Switch to LangSmith — the new trace appears within a few seconds
+
+### Step 6 — Trigger a Slack trace
+
+Send a DM or @mention to the Symphony bot in Slack. The resulting LLM call appears in LangSmith as a single-step trace with the agent's system prompt and the user's message.
+
+### Step 7 — Filter and search
+
+Use the **Filter** bar at the top of the Traces list to narrow by:
+- **Status**: success / error
+- **Model**: e.g. `claude-sonnet-4-6`
+- **Latency**: slow runs
+- **Date range**: last hour, day, week
+
+---
+
+## Slack Integration — Testing Instructions
+
+### Prerequisites
+- A Slack workspace where you can install apps
+- `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` set in your environment (see Readme)
+- Backend running: `workon symphony && fastapi dev app/main.py`
+
+### Step 1 — Configure an agent for Slack
+1. Open http://localhost:5173/src/html/memory.html
+2. Select an agent from the dropdown
+3. Under **Agent Configuration**, find the **Channels** section and add `slack`
+4. Save
+
+### Step 2 — Verify the bot connected
+Check the backend terminal on startup — you should see:
+
+  INFO  Slack bot connected via Socket Mode.
+
+If you see `SLACK_BOT_TOKEN or SLACK_APP_TOKEN not set — Slack bot disabled`, check your environment variables.
+
+### Step 3 — Send a direct message
+1. In Slack, open a DM with your Symphony bot
+2. Send any message (e.g. `Hello, what can you do?`)
+3. The bot replies using the configured agent's model and system prompt
+
+### Step 4 — Test @mention
+1. In any channel where the bot is invited, type `@SymphonyBot Hello`
+2. The bot strips the mention prefix and replies
+
+### Step 5 — Verify message persistence
+Messages from Slack are stored in the `messages` table and visible in the Symphony UI:
+
+  # Check via SQL
+  SELECT * FROM messages ORDER BY created_at DESC LIMIT 10;
+
+  # Or via the UI
+  Open http://localhost:5173/src/html/messages.html
+
 ### Known behaviour
+- The bot routes to the **first** agent with `"slack"` in its channels — only configure one agent per Slack workspace
+- The Slack channel ID is used as `session_id`, so each channel maintains its own conversation context
+- If no agent has `"slack"` in channels, the bot falls back to `claude-haiku-4-5-20251001` with a generic system prompt (messages are not persisted in this fallback case)
+- The bot disables itself silently if tokens are missing or still set to placeholder values
+
+---
+
+### Known behaviour (Workflow Builder)
 - Feedback loops exit after **5 agent passes** (MAX_LOOPS = 5) — condition_result is forced to True
 - Agent nodes require ANTHROPIC_API_KEY in the environment to call Claude
 - Start / End / Condition nodes run without an API key
