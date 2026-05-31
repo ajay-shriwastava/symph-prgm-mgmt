@@ -109,6 +109,95 @@ Shut down with `q + Enter` or `Ctrl+C`.
 
 ---
 
+## Workflow Templates
+
+Symphony ships with two pre-built workflow templates available from the Workflows page. Click **Use Template** to instantiate one — it creates the workflow, saves it to the database, and registers its schedule automatically.
+
+### Template 1 — Data Ingestion Pipeline
+
+Monitors a dataset directory for CSV files, checks data quality, ingests clean rows into PostgreSQL, profiles the data, and publishes a report.
+
+| Property | Value |
+|---|---|
+| Schedule | Every minute (`* * * * *`) |
+| Trigger | CSV file placed in `dataset/input/` |
+| Dataset dir | `DATASET_DIR` env var (default: `symph-prgm-mgmt/dataset`) |
+| Report channel | `SLACK_REPORT_CHANNEL` env var |
+
+**Pipeline flow:**
+
+```
+Start → Scan CSV → File Found? (condition)
+  [false] → End
+  [true]  → Data Quality → Ingest to DB → Data Profile → Report Agent → Publish Report → End
+```
+
+**Node behaviour:**
+
+| Node | Type | What it does |
+|---|---|---|
+| Scan CSV | tool | Scans `input/`, picks most-recently-modified CSV, derives table name |
+| Data Quality | tool | Removes duplicates, flags blank rows, reports per-column null warnings |
+| Ingest to DB | tool | Creates table from CSV schema, inserts clean rows, moves file to `processed/`, writes rejected rows to `error/` |
+| Data Profile | tool | Statistical profile + LLM-generated domain-aware narrative (real estate, HR, e-commerce, generic) |
+| Report Agent | agent | Generates executive summary covering ingestion stats and data insights |
+| Publish Report | tool | Writes `output/*_report_*.txt` and posts to Slack |
+
+**Directory structure:**
+```
+dataset/
+  input/      ← drop CSV files here
+  processed/  ← file moved here after successful ingestion
+  output/     ← ingested rows CSV + report .txt written here
+  error/      ← rejected rows (blanks/duplicates) written here
+```
+
+**Required env vars:**
+```
+DATASET_DIR=...            # path to dataset directory
+SLACK_REPORT_CHANNEL=...   # Slack channel for the report (e.g. data-reports)
+```
+
+---
+
+### Template 2 — SRE Job Summary
+
+Queries all workflow run statistics for the last 24 hours and posts a job health summary to Slack.
+
+| Property | Value |
+|---|---|
+| Schedule | Every hour (`0 * * * *`) |
+| Report channel | `#job-summary` (hardcoded in template) |
+
+**Pipeline flow:**
+
+```
+Start → Collect Job Stats → SRE Report Agent → Post to Slack → End
+```
+
+**Node behaviour:**
+
+| Node | Type | What it does |
+|---|---|---|
+| Collect Job Stats | tool | Queries `workflow_runs` for the last 24h — total, completed, failed, running, pending, per-workflow breakdown |
+| SRE Report Agent | agent | Writes a Slack-friendly bullet-point health summary with ✅/❌/⚠️ indicators |
+| Post to Slack | tool | Posts the report to `#job-summary` |
+
+**Required env vars:**
+```
+SLACK_BOT_TOKEN=xoxb-...   # bot must be invited to #job-summary
+```
+
+---
+
+### Adding a new template
+
+1. Create `app/templates/<name>.py` defining a dict with keys: `id`, `name`, `description`, `schedule`, `graph_definition`
+2. Import and add it to the `TEMPLATES` list in `app/templates/__init__.py`
+3. The template appears on the Workflows page automatically on next server start
+
+---
+
 ## Slack Integration
 
 Symphony includes a Socket Mode Slack bot that lets you chat with agents directly from Slack.

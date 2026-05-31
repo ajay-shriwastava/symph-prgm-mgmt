@@ -340,6 +340,174 @@ Messages from Slack are stored in the `messages` table and visible in the Sympho
 
 ---
 
+---
+
+## Data Ingestion Pipeline — Testing Instructions
+
+### Prerequisites
+- Backend and frontend running (see Workflow Builder prerequisites above)
+- `DATASET_DIR` set in `symph-back-end/.env` pointing to the `symph-prgm-mgmt/dataset` directory
+- `SLACK_REPORT_CHANNEL` set in `symph-back-end/.env` (e.g. `data-reports`) — bot must be invited to that channel
+- `ANTHROPIC_API_KEY` set (the Report Agent node calls Claude)
+
+### Step 1 — Instantiate the template
+1. Open http://localhost:5173/src/html/workflows.html
+2. In the **Templates** panel at the top, find **Data Ingestion Pipeline**
+3. Click **Use Template** — a new workflow is created, saved, and its cron schedule (`* * * * *`) is registered automatically
+4. The workflow appears in the workflow list with status `draft`
+
+### Step 2 — Drop a CSV file into the input directory
+
+```bash
+# Confirm directory structure
+ls /path/to/symph-prgm-mgmt/dataset/
+# should show: input/  output/  processed/  error/
+
+# Copy the sample file (or any CSV with headers)
+cp /path/to/symph-prgm-mgmt/dataset/input/real_estate.csv /path/to/symph-prgm-mgmt/dataset/input/
+```
+
+A sample file (`real_estate.csv`) is already included. The pipeline runs on a 1-minute cron, so it will pick up any CSV placed in `input/` on the next tick.
+
+### Step 3 — Watch it run
+Check the backend terminal for log output:
+
+```
+INFO  Tool 'csv_scanner' started
+INFO  Tool 'csv_scanner' completed
+INFO  Condition node: file_check — condition_result = True
+INFO  Tool 'data_quality' started
+INFO  Tool 'data_quality' completed
+INFO  Tool 'db_ingestor' started
+INFO  Tool 'db_ingestor' completed
+INFO  Tool 'data_profiler' started
+INFO  Tool 'data_profiler' completed
+INFO  Node 'report' started (model: claude-haiku-4-5-20251001)
+INFO  Node 'report' completed — ↑NNN ↓NNN tokens, $0.XXXX
+INFO  Tool 'report_publisher' started
+INFO  Tool 'report_publisher' completed
+INFO  Workflow run <uuid> completed
+```
+
+### Step 4 — Verify output files
+
+```bash
+ls dataset/output/      # ingested rows CSV + *_report_*.txt
+ls dataset/processed/   # original CSV moved here
+ls dataset/error/       # rejected rows CSV (blanks/duplicates only)
+```
+
+### Step 5 — Verify data in PostgreSQL
+Open pgAdmin and run:
+
+```sql
+-- See the ingested table (name derived from filename, e.g. real_estate)
+SELECT * FROM real_estate LIMIT 10;
+
+-- Check the workflow run
+SELECT id, status, started_at, finished_at, output->'usage' AS usage
+FROM workflow_runs ORDER BY started_at DESC LIMIT 5;
+```
+
+### Step 6 — Verify Slack report
+Check the `#data-reports` channel (or whatever `SLACK_REPORT_CHANNEL` is set to) — a formatted report summarising the ingestion stats and a data profile narrative should appear.
+
+### Step 7 — Drop another file
+Place a second CSV in `input/`. The pipeline picks it up on the next cron tick (within 1 minute). Files already in `processed/` are not re-processed.
+
+### Troubleshooting
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| No run triggered | Scheduler not started | Restart backend; check for `Scheduler started` log |
+| `condition_result = False` | No CSV in input/ | Drop a file into `dataset/input/` |
+| All rows in error/ | Data quality rejecting everything | Check CSV has at least some non-blank rows |
+| Slack message missing | Token/channel misconfigured | Check `SLACK_BOT_TOKEN` and `SLACK_REPORT_CHANNEL` env vars |
+
+---
+
+## SRE Job Summary — Testing Instructions
+
+### Prerequisites
+- Backend running: `workon symphony && fastapi dev app/main.py`
+- `SLACK_BOT_TOKEN` set and the bot invited to the `#job-summary` Slack channel
+- At least a few workflow runs in the database (run the Data Ingestion Pipeline a few times first)
+
+### Step 1 — Instantiate the template
+1. Open http://localhost:5173/src/html/workflows.html
+2. In the **Templates** panel, find **SRE Job Summary**
+3. Click **Use Template** — the workflow is created and its hourly cron (`0 * * * *`) is registered
+
+### Step 2 — Trigger manually (don't wait an hour)
+Run the workflow directly via the API:
+
+```bash
+# Get the workflow ID
+curl http://127.0.0.1:8000/api/v1/workflows \
+  -H "Authorization: Bearer test" | python3 -m json.tool | grep -A2 "SRE"
+
+# Trigger a run (replace <workflow-id>)
+curl -X POST http://127.0.0.1:8000/api/v1/workflows/<workflow-id>/run \
+  -H "Authorization: Bearer test" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Or open the workflow in the UI (click **Edit**) and click **Run**.
+
+### Step 3 — Watch the backend logs
+
+```
+INFO  Tool 'job_stats_collector' started
+INFO  Tool 'job_stats_collector' completed
+INFO  Node 'report' started (model: claude-haiku-4-5-20251001)
+INFO  Node 'report' completed — ↑NNN ↓NNN tokens, $0.XXXX
+INFO  Tool 'report_publisher' started
+INFO  Tool 'report_publisher' completed
+INFO  Workflow run <uuid> completed
+```
+
+### Step 4 — Verify Slack message
+Check `#job-summary` in Slack. You should see a bullet-point health summary like:
+
+```
+*Symphony Job Health Summary — Last 24h*
+• Total runs: 8  |  Success rate: 87.5%
+✅ Completed: 7  ❌ Failed: 1  🔄 Running: 0  ⏳ Pending: 0
+
+*Per-workflow breakdown:*
+✅ Data Ingestion Pipeline — 7 completed
+❌ My Test Workflow — 1 failed  ⚠️ Needs attention
+
+Last updated: 2026-05-30 14:00 UTC
+```
+
+### Step 5 — Verify the run in pgAdmin
+
+```sql
+SELECT id, status, started_at, finished_at, output->'usage' AS usage
+FROM workflow_runs ORDER BY started_at DESC LIMIT 5;
+```
+
+The SRE run appears with `status = 'completed'`. Note: no report file is written to disk (only Slack posting).
+
+### Step 6 — Verify hourly schedule
+To confirm the scheduler has registered the cron, check backend startup logs:
+
+```
+INFO  Registered cron for workflow '<id>' (SRE Job Summary): 0 * * * *
+```
+
+The job will fire automatically every hour at :00.
+
+### Troubleshooting
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| No Slack message | Bot not in #job-summary | `/invite @SymphonyBot` in the channel |
+| Empty stats | No workflow runs in DB | Run the Data Ingestion Pipeline a few times first |
+| `SLACK_BOT_TOKEN` error | Token missing | Set in `symph-back-end/.env` and restart |
+
+---
+
 ### Known behaviour (Workflow Builder)
 - Feedback loops exit after **5 agent passes** (MAX_LOOPS = 5) — condition_result is forced to True
 - Agent nodes require ANTHROPIC_API_KEY in the environment to call Claude
