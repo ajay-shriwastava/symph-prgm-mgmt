@@ -5,46 +5,19 @@ Vite frontend + FastAPI backend + PostgreSQL database.
 
 ---
 
-## Architecture
-
-```mermaid
-graph TB
-    Browser(["Browser"])
-
-    subgraph DC ["Docker Compose  (symph-back-end)"]
-        direction TB
-        nginx["nginx\nport 80"]
-        FE["symph-front-end\nVite build · HTML/CSS/JS"]
-        BE["symph-back-end\nFastAPI · LangGraph · APScheduler\nport 8000"]
-        PG[("PostgreSQL 16\nport 5432")]
-        Migrate["alembic upgrade head\n(init container)"]
-    end
-
-    Anthropic["☁ Anthropic API\nClaude models"]
-    Slack["☁ Slack\nSocket Mode"]
-    LangSmith["☁ LangSmith\nTracing (optional)"]
-
-    Browser -->|"HTTP :80  pages + assets"| nginx
-    nginx -->|"serves pre-built static files"| FE
-    nginx -->|"/api/*  reverse proxy"| BE
-    Browser <-->|"WebSocket :8000  live run events"| BE
-    Migrate -->|"schema migrations"| PG
-    BE -->|"async SQLAlchemy"| PG
-    BE -->|"LangGraph agent nodes"| Anthropic
-    Slack <-->|"DMs · mentions"| BE
-    BE -.->|"LLM traces · token costs"| LangSmith
-```
+## Architecture Diagram
+![Architecture Diagram for Symphony](doc/architecture.png)
 
 ---
 
 ## Repositories
 
-| Repo | Purpose |
-|---|---|
-| **symph-back-end** | FastAPI server — REST API, LangGraph workflow execution, Slack bot, APScheduler cron, Alembic migrations, WebSocket broadcast, Docker Compose entry point |
-| **symph-front-end** | Vanilla HTML/CSS/JS frontend — visual workflow builder, agent management, live run panel, Vite dev server (local) / nginx (Docker) |
+| Repo | Link | Purpose |
+|---|---|---|
+| **symph-back-end** | [github.com/ajay-shriwastava/symph-back-end](https://github.com/ajay-shriwastava/symph-back-end) | FastAPI server — REST API, LangGraph workflow execution, Slack bot, APScheduler cron, Alembic migrations, WebSocket broadcast, Docker Compose entry point |
+| **symph-front-end** | [github.com/ajay-shriwastava/symph-front-end](https://github.com/ajay-shriwastava/symph-front-end) | Vanilla HTML/CSS/JS frontend — visual workflow builder, agent management, live run panel, Vite dev server (local) / nginx (Docker) |
 
-Both repos must be cloned side-by-side (docker-compose in `symph-back-end` references `../symph-front-end`).
+Both repos must be cloned side-by-side (`docker-compose.yml` in `symph-back-end` references `../symph-front-end`).
 
 ---
 
