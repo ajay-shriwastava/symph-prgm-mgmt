@@ -1,97 +1,246 @@
 
-
 # Symphony — Agentic AI Orchestration Platform
 
 Vite frontend + FastAPI backend + PostgreSQL database.
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    Browser(["Browser"])
+
+    subgraph DC ["Docker Compose  (symph-back-end)"]
+        direction TB
+        nginx["nginx\nport 80"]
+        FE["symph-front-end\nVite build · HTML/CSS/JS"]
+        BE["symph-back-end\nFastAPI · LangGraph · APScheduler\nport 8000"]
+        PG[("PostgreSQL 16\nport 5432")]
+        Migrate["alembic upgrade head\n(init container)"]
+    end
+
+    Anthropic["☁ Anthropic API\nClaude models"]
+    Slack["☁ Slack\nSocket Mode"]
+    LangSmith["☁ LangSmith\nTracing (optional)"]
+
+    Browser -->|"HTTP :80  pages + assets"| nginx
+    nginx -->|"serves pre-built static files"| FE
+    nginx -->|"/api/*  reverse proxy"| BE
+    Browser <-->|"WebSocket :8000  live run events"| BE
+    Migrate -->|"schema migrations"| PG
+    BE -->|"async SQLAlchemy"| PG
+    BE -->|"LangGraph agent nodes"| Anthropic
+    Slack <-->|"DMs · mentions"| BE
+    BE -.->|"LLM traces · token costs"| LangSmith
+```
+
+---
+
+## Repositories
+
+| Repo | Purpose |
+|---|---|
+| **symph-back-end** | FastAPI server — REST API, LangGraph workflow execution, Slack bot, APScheduler cron, Alembic migrations, WebSocket broadcast, Docker Compose entry point |
+| **symph-front-end** | Vanilla HTML/CSS/JS frontend — visual workflow builder, agent management, live run panel, Vite dev server (local) / nginx (Docker) |
+
+Both repos must be cloned side-by-side (docker-compose in `symph-back-end` references `../symph-front-end`).
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Version | Install |
+|---|---|---|
+| Git | any | https://git-scm.com |
+| Docker Desktop | 4.x+ | https://www.docker.com/products/docker-desktop |
+| An Anthropic API key | — | https://console.anthropic.com |
+
+Docker Desktop must be running before you start.
+
+### 1. Clone the repositories
+
+Symphony consists of two repos that must sit next to each other in the same parent directory:
+
+```bash
+mkdir symphony && cd symphony
+
+git clone https://github.com/ajay-shriwastava/symph-back-end.git
+git clone https://github.com/ajay-shriwastava/symph-front-end.git
+```
+
+Your directory structure should look like this:
+
+```
+symphony/
+  symph-back-end/     ← FastAPI backend (clone this first)
+  symph-front-end/    ← Vite frontend
+```
+
+### 2. Configure environment variables
+
+```bash
+cd symph-back-end
+cp .env.example .env
+```
+
+Open `.env` and set your values:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...        # required — get from console.anthropic.com
+SLACK_BOT_TOKEN=xoxb-...            # optional — Slack integration
+SLACK_APP_TOKEN=xapp-...            # optional — Slack integration
+SLACK_REPORT_CHANNEL=data-reports   # optional — Slack channel for reports
+```
+
+All other values in `.env.example` can be left at their defaults for a local run.
+
+### 3. Start everything
+
+```bash
+docker compose up --build
+```
+
+This single command:
+- Starts PostgreSQL and waits for it to be healthy
+- Runs all database migrations automatically (`alembic upgrade head`)
+- Builds and starts the FastAPI backend
+- Builds the frontend and serves it via nginx
+
+First build takes 2–4 minutes (downloading base images, installing dependencies). Subsequent runs: `docker compose up`.
+
+### 4. Open the app
+
+| URL | What you get |
+|---|---|
+| http://localhost | Symphony UI |
+| http://localhost:8000/docs | Interactive API docs (Swagger UI) |
+
+### 5. Stop
+
+```bash
+docker compose down          # stops containers, keeps the database volume
+docker compose down -v       # stops containers AND deletes the database
+```
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vanilla HTML + CSS + JavaScript, served by Vite |
+| Frontend | Vanilla HTML + CSS + JavaScript, served by Vite (dev) / nginx (Docker) |
 | Backend | FastAPI (Python 3.11+), async SQLAlchemy 2, Alembic |
 | Database | PostgreSQL (asyncpg driver) |
 | Agent runtime | LangGraph + langchain-anthropic (integrated into FastAPI services) |
 | Real-time | FastAPI WebSocket endpoints, ConnectionManager pattern (`app/ws_manager.py`) |
+| Messaging | Slack Socket Mode bot (`app/slack_bot.py`) |
+| Scheduling | APScheduler cron integration (`app/scheduler.py`) |
+| Observability | LangSmith tracing (opt-in via env vars) |
+| Containerisation | Docker Compose (single-command setup) |
 
 ---
 
-## Local Setup
+## Quick Start — Docker
+
+```bash
+cd symph-back-end
+cp .env.example .env          # fill in ANTHROPIC_API_KEY (and optional Slack tokens)
+docker compose up --build
+```
+
+- **Frontend**: http://localhost
+- **API docs**: http://localhost:8000/docs
+
+This single command starts Postgres, runs all Alembic migrations, and brings up the backend and frontend. Subsequent runs need only `docker compose up`.
+
+---
+
+## Local Dev Setup
 
 ### 1. PostgreSQL — create the database
+
 ```bash
 brew services restart postgresql
-psql -U postgres
-CREATE DATABASE symphony;
-\q
+psql -U postgres -c "CREATE DATABASE symphony;"
 ```
-
-Set the connection string as an environment variable (or rely on the default):
-
-```bash
-export DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost/symphony"
-```
-
----
 
 ### 2. Backend (`symph-back-end`)
-
-#### One-time virtualenv setup
 
 ```bash
 mkvirtualenv symphony
 workon symphony
 pip install -r requirements.txt
-```
-
-#### Install new dependencies (after pulling latest)
-
-```bash
-workon symphony
-pip install -r requirements.txt
-```
-
-#### Run Alembic migration (creates all tables, including workflow_runs)
-
-```bash
-workon symphony
 alembic upgrade head
+fastapi dev app/main.py        # → http://127.0.0.1:8000/docs
 ```
-
-#### Start the FastAPI dev server
-
-```bash
-workon symphony
-fastapi dev app/main.py
-```
-
-- API: http://127.0.0.1:8000
-- Interactive docs: http://127.0.0.1:8000/docs
-
-Shut down with `Ctrl+C`.
-
----
 
 ### 3. Frontend (`symph-front-end`)
 
 ```bash
-npm install      # first time only
-npm run dev
+npm install
+npm run dev                    # → http://localhost:5173/src/html/agents.html
 ```
 
-- UI: http://localhost:5173/src/html/agents.html
+> In local dev without Docker, set `BASE_URL = "http://localhost:8000"` in `symph-front-end/src/js/api.js`.
 
-Shut down with `q + Enter` or `Ctrl+C`.
+---
 
-#### Pages
+## Features
 
-| URL | Purpose |
-|---|---|
-| /src/html/agents.html | Create, edit, delete agents |
-| /src/html/workflows.html | Create, edit, delete workflows |
-| /src/html/messages.html | View all messages (with session/agent filters) and Agent Handoffs tab |
-| /src/html/logs.html | View logs filtered by level, agent, or workflow |
-| /src/html/memory.html | Agent Configuration: Memory, Schedules, Skills, Interaction Rules, Guardrails |
+### Agent Management
+Create and configure AI agents with a name, model (Claude Sonnet / Haiku), system prompt, tools, and memory. Each agent can be independently scheduled, given skills, interaction rules, and guardrails, and assigned to messaging channels.
+
+### Visual Workflow Builder
+Drag-and-drop SVG canvas on the Workflows page. Supports Start, Agent, Condition, and End nodes connected by bezier edges. Condition nodes support branching (true/false) and feedback loops up to a configurable `max_loops` (default: 20).
+
+### Workflow Execution
+Workflows run as LangGraph graphs. Each run is tracked in the `workflow_runs` table with status, input/output, and token usage. Live execution events stream to the browser via WebSocket (`node_enter`, `node_complete`, `edge_traverse`, `run_complete`, `run_error`).
+
+### Workflow Templates
+Two pre-built templates available from the Workflows page:
+
+| Template | Schedule | What it does |
+|---|---|---|
+| Data Ingestion Pipeline | Every minute | Scans for CSVs, checks quality, ingests to DB, profiles data, posts report to Slack |
+| SRE Job Summary | Every hour | Queries 24h workflow run stats, writes a health summary, posts to Slack |
+
+### Agent Messaging via Slack
+A Socket Mode Slack bot starts automatically with the FastAPI server. It routes DMs and @mentions to the configured agent and persists all messages. Configurable per-agent via Agent Configuration → Channels.
+
+### Agent Configuration
+Per-agent settings managed via the UI (memory page):
+- **Memory**: persistent key/value store per agent
+- **Schedules**: cron-based automatic triggering
+- **Skills**: capabilities the agent is allowed to use
+- **Interaction Rules**: constraints on how the agent communicates
+- **Guardrails**: safety boundaries
+- **Channels**: messaging integrations (e.g. `slack`)
+
+### Observability
+LangSmith tracing for all LLM calls — full prompt/response, token counts, cost, and per-node latency. Opt-in via environment variables, no code changes needed.
+
+---
+
+## Tests
+
+139 tests (integration + unit) covering all routers, the workflow runner, and agent memory.
+
+```bash
+# One-time: create the test database
+psql -U postgres -c "CREATE DATABASE symphony_test;"
+
+# Run all tests
+workon symphony
+pytest
+
+# With coverage
+pytest --cov=app --cov-report=term-missing
+```
+
+Tests use a dedicated `symphony_test` database (never touches the dev database). All tables are truncated between tests.
 
 ---
 
@@ -100,31 +249,21 @@ Shut down with `q + Enter` or `Ctrl+C`.
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost/symphony` | PostgreSQL async connection string |
-| `ANTHROPIC_API_KEY` | — | Required for LangGraph agent nodes and Slack bot to call Claude |
+| `ANTHROPIC_API_KEY` | — | **Required** for LangGraph agent nodes and Slack bot |
 | `SLACK_BOT_TOKEN` | — | Slack bot token (`xoxb-...`) for Socket Mode |
 | `SLACK_APP_TOKEN` | — | Slack app-level token (`xapp-...`) for Socket Mode |
+| `SLACK_REPORT_CHANNEL` | `data-reports` | Slack channel for pipeline reports |
+| `DATASET_DIR` | — | Path to dataset directory (Data Ingestion Pipeline template) |
 | `LANGCHAIN_TRACING_V2` | `false` | Set to `true` to enable LangSmith tracing |
 | `LANGCHAIN_API_KEY` | — | LangSmith API key |
-| `LANGCHAIN_PROJECT` | — | LangSmith project name (e.g. `symphony`) |
+| `LANGCHAIN_PROJECT` | `symphony` | LangSmith project name |
+| `POSTGRES_PASSWORD` | `postgres` | Docker Compose only |
 
 ---
 
 ## Workflow Templates
 
-Symphony ships with two pre-built workflow templates available from the Workflows page. Click **Use Template** to instantiate one — it creates the workflow, saves it to the database, and registers its schedule automatically.
-
 ### Template 1 — Data Ingestion Pipeline
-
-Monitors a dataset directory for CSV files, checks data quality, ingests clean rows into PostgreSQL, profiles the data, and publishes a report.
-
-| Property | Value |
-|---|---|
-| Schedule | Every minute (`* * * * *`) |
-| Trigger | CSV file placed in `dataset/input/` |
-| Dataset dir | `DATASET_DIR` env var (default: `symph-prgm-mgmt/dataset`) |
-| Report channel | `SLACK_REPORT_CHANNEL` env var |
-
-**Pipeline flow:**
 
 ```
 Start → Scan CSV → File Found? (condition)
@@ -132,69 +271,15 @@ Start → Scan CSV → File Found? (condition)
   [true]  → Data Quality → Ingest to DB → Data Profile → Report Agent → Publish Report → End
 ```
 
-**Node behaviour:**
-
-| Node | Type | What it does |
-|---|---|---|
-| Scan CSV | tool | Scans `input/`, picks most-recently-modified CSV, derives table name |
-| Data Quality | tool | Removes duplicates, flags blank rows, reports per-column null warnings |
-| Ingest to DB | tool | Creates table from CSV schema, inserts clean rows, moves file to `processed/`, writes rejected rows to `error/` |
-| Data Profile | tool | Statistical profile + LLM-generated domain-aware narrative (real estate, HR, e-commerce, generic) |
-| Report Agent | agent | Generates executive summary covering ingestion stats and data insights |
-| Publish Report | tool | Writes `output/*_report_*.txt` and posts to Slack |
-
-**Directory structure:**
-```
-dataset/
-  input/      ← drop CSV files here
-  processed/  ← file moved here after successful ingestion
-  output/     ← ingested rows CSV + report .txt written here
-  error/      ← rejected rows (blanks/duplicates) written here
-```
-
-**Required env vars:**
-```
-DATASET_DIR=...            # path to dataset directory
-SLACK_REPORT_CHANNEL=...   # Slack channel for the report (e.g. data-reports)
-```
-
----
+**Required env vars:** `DATASET_DIR`, `SLACK_REPORT_CHANNEL`, `ANTHROPIC_API_KEY`
 
 ### Template 2 — SRE Job Summary
-
-Queries all workflow run statistics for the last 24 hours and posts a job health summary to Slack.
-
-| Property | Value |
-|---|---|
-| Schedule | Every hour (`0 * * * *`) |
-| Report channel | `#job-summary` (hardcoded in template) |
-
-**Pipeline flow:**
 
 ```
 Start → Collect Job Stats → SRE Report Agent → Post to Slack → End
 ```
 
-**Node behaviour:**
-
-| Node | Type | What it does |
-|---|---|---|
-| Collect Job Stats | tool | Queries `workflow_runs` for the last 24h — total, completed, failed, running, pending, per-workflow breakdown |
-| SRE Report Agent | agent | Writes a Slack-friendly bullet-point health summary with ✅/❌/⚠️ indicators |
-| Post to Slack | tool | Posts the report to `#job-summary` |
-
-**Required env vars:**
-```
-SLACK_BOT_TOKEN=xoxb-...   # bot must be invited to #job-summary
-```
-
----
-
-### Adding a new template
-
-1. Create `app/templates/<name>.py` defining a dict with keys: `id`, `name`, `description`, `schedule`, `graph_definition`
-2. Import and add it to the `TEMPLATES` list in `app/templates/__init__.py`
-3. The template appears on the Workflows page automatically on next server start
+**Required env vars:** `SLACK_BOT_TOKEN` (bot must be invited to `#job-summary`)
 
 ---
 
@@ -202,63 +287,18 @@ SLACK_BOT_TOKEN=xoxb-...   # bot must be invited to #job-summary
 
 Symphony includes a Socket Mode Slack bot that lets you chat with agents directly from Slack.
 
-### How it works
-
-- The bot listens for **direct messages** and **@mentions**
-- On each message it looks up the first agent in the database whose `channels` list includes `"slack"`
-- The agent's model and system prompt are used to generate a reply via Claude
-- Both the inbound message and the reply are persisted to the `messages` table (grouped by Slack channel as session)
-- The bot starts and stops automatically with the FastAPI server (via lifespan)
-
-### Setup
-
+**Setup:**
 1. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps) with **Socket Mode** enabled
 2. Add bot scopes: `chat:write`, `im:history`, `app_mentions:read`
 3. Subscribe to events: `message.im`, `app_mention`
-4. Set environment variables:
-   ```bash
-   export SLACK_BOT_TOKEN="xoxb-..."
-   export SLACK_APP_TOKEN="xapp-..."
-   ```
-5. In the Symphony UI (**Agent Configuration → Channels**), add `slack` to the agent you want to handle Slack messages
+4. Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`
+5. In the Symphony UI (**Agent Configuration → Channels**), add `slack` to the target agent
 
-If neither token is set, the bot silently disables itself and the rest of Symphony runs normally.
-
----
-
-## API Overview
-
-All endpoints are under `/api/v1` and require an `Authorization: Bearer <token>` header.
-Auth is currently a stub — any non-empty token is accepted.
-
-| Resource | Endpoints |
-|---|---|
-| Agents | GET/POST `/api/v1/agents`, GET/PUT/DELETE `/api/v1/agents/{id}` |
-| Workflows | GET/POST `/api/v1/workflows`, GET/PUT/DELETE `/api/v1/workflows/{id}` |
-| Workflow Runs | POST `/api/v1/workflows/{id}/run`, GET `/api/v1/workflows/{id}/runs`, GET `/api/v1/workflows/{id}/runs/{run_id}` |
-| Messages | GET/POST `/api/v1/messages`, GET/DELETE `/api/v1/messages/{id}` — filter by `session_id`, `agent_id`, `role` |
-| Logs | GET/POST `/api/v1/logs`, GET `/api/v1/logs/{id}` |
-| Agent Memory | GET/POST `/api/v1/agents/{id}/memory`, GET/DELETE `/api/v1/agents/{id}/memory/{key}` |
-| Agent Schedules | GET/POST `/api/v1/agents/{id}/schedules`, PUT/DELETE `/api/v1/agents/{id}/schedules/{schedule_id}` |
-| Agent Skills | PUT `/api/v1/agents/{id}/skills` |
-| Interaction Rules | PUT `/api/v1/agents/{id}/interaction-rules` |
-| Guardrails | PUT `/api/v1/agents/{id}/guardrails` |
-
-### WebSocket
-
-| Resource | URL |
-|---|---|
-| Run event stream | `ws://127.0.0.1:8000/ws/workflows/{workflow_id}/runs/{run_id}?token=<jwt>` |
-
-Events: `node_enter`, `node_complete`, `edge_traverse`, `run_complete`, `run_error`
+If tokens are not set, the bot silently disables itself and the rest of Symphony runs normally.
 
 ---
 
 ## Observability — LangSmith Tracing
-
-Symphony integrates with [LangSmith](https://smith.langchain.com) for deep LLM tracing of all workflow runs and Slack messages. Tracing is opt-in and requires no code changes — just environment variables.
-
-### Setup
 
 1. Sign up at [smith.langchain.com](https://smith.langchain.com) and create a project named `symphony`
 2. Generate an API key under **Settings → API Keys**
@@ -270,12 +310,26 @@ Symphony integrates with [LangSmith](https://smith.langchain.com) for deep LLM t
    ```
 4. Restart the backend — all subsequent LLM calls are traced automatically
 
-### What gets traced
+---
 
-- **Workflow runs** — full LangGraph execution tree with per-node latency, Claude prompt + response, token counts, and cost
-- **Slack messages** — each inbound message and its LLM reply
+## API Overview
 
-See the `symph-back-end` Readme for full details on viewing and filtering traces in the LangSmith UI.
+All endpoints under `/api/v1`. Auth is a stub — any non-empty Bearer token is accepted.
+
+| Resource | Endpoints |
+|---|---|
+| Agents | GET/POST `/agents`, GET/PUT/DELETE `/agents/{id}` |
+| Agent Memory | GET/POST `/agents/{id}/memory`, GET/DELETE `/agents/{id}/memory/{key}` |
+| Agent Schedules | GET/POST `/agents/{id}/schedules`, PUT/DELETE `/agents/{id}/schedules/{schedule_id}` |
+| Agent Skills | PUT `/agents/{id}/skills` |
+| Interaction Rules | PUT `/agents/{id}/interaction-rules` |
+| Guardrails | PUT `/agents/{id}/guardrails` |
+| Workflows | GET/POST `/workflows`, GET/PUT/DELETE `/workflows/{id}` |
+| Workflow Runs | POST `/workflows/{id}/run`, GET `/workflows/{id}/runs`, GET `/workflows/{id}/runs/{run_id}` |
+| Templates | GET `/templates`, POST `/templates/{id}/instantiate` |
+| Messages | GET/POST `/messages`, GET/DELETE `/messages/{id}` |
+| Logs | GET/POST `/logs`, GET `/logs/{id}` |
+| WebSocket | `ws://localhost:8000/ws/workflows/{id}/runs/{run_id}?token=<token>` |
 
 ---
 
@@ -286,3 +340,5 @@ See the `symph-back-end` Readme for full details on viewing and filtering traces
 - [Alembic documentation](https://alembic.sqlalchemy.org/)
 - [Vite documentation](https://vite.dev/guide/)
 - [LangSmith documentation](https://docs.smith.langchain.com/)
+- [LangGraph documentation](https://langchain-ai.github.io/langgraph/)
+- [Slack Bolt / Socket Mode](https://slack.dev/bolt-python/concepts)

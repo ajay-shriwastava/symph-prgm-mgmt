@@ -1,159 +1,102 @@
-  # 1. Create the database
-  psql -U postgres -c "CREATE DATABASE orchestra;"
+# Symphony — Demo Instructions
 
-  # 2. Backend
-  cd ~/tech/yuno/orch-back-end && workon orchestra
-  pip install -r requirements.txt
-  alembic upgrade head
-  fastapi dev app/main.py        # → http://127.0.0.1:8000/docs
+---
 
-  # 3. Frontend (new terminal)
-  cd ~/tech/yuno/orca-front-end && npm install && npm run dev
-  # → http://localhost:5173/src/agents.html
+## Setup
 
-SELECT datname FROM pg_database WHERE datistemplate = false;
+### Option A — Docker (recommended, single command)
 
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public';
+```bash
+cd symph-back-end
+cp .env.example .env
+# Edit .env — add ANTHROPIC_API_KEY (required) and Slack tokens (optional)
+docker compose up --build
+```
 
-select * from agents;
+- **Frontend**: http://localhost
+- **API docs**: http://localhost:8000/docs
 
-select * from workflows;
+Postgres is created, all migrations run, and all services start automatically.
+Subsequent runs: `docker compose up` (no `--build` needed).
 
-########
-curl -X POST http://127.0.0.1:8000/api/v1/messages \
-    -H "Authorization: Bearer test" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "agent_id": "039447ec-ffcc-452a-bba0-3ba384c0a6e7",
-      "session_id": "00000000-0000-0000-0000-000000000001",
-      "role": "user",
-      "content": "Hello, what can you do?"
-    }'
+---
 
-########
-curl -X POST http://127.0.0.1:8000/api/v1/logs \
-    -H "Authorization: Bearer test" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "level": "INFO",
-      "message": "Agent started successfully",
-      "agent_id": "039447ec-ffcc-452a-bba0-3ba384c0a6e7",
-      "metadata": {"duration_ms": 42}
-    }'
+### Option B — Local Dev (two terminals)
 
- How can I test messages and logs                                                                                                                                              
-                                    
-⏺ Read 2 files (ctrl+o to expand)                                                                                                                                               
-                                                                                                                                                                              
-⏺ The easiest way is the interactive API docs at http://127.0.0.1:8000/docs. You'll need an agent UUID first.                                                                   
-                                                                                                                                                                                
-  ---                                                                                                                                                                           
-  Step 1 — get an agent UUID                                                                                                                                                    
-                                                                                                                                                                                
-  If you already created an agent via the UI, grab its ID from the agents page. Or fetch one:                                                                                   
-                                                                                                                                                                              
-  curl http://127.0.0.1:8000/api/v1/agents \
-    -H "Authorization: Bearer test"
+**Prerequisites:** PostgreSQL running locally.
 
-  Copy an id from the response.
+```bash
+# One-time database setup
+psql -U postgres -c "CREATE DATABASE symphony;"
 
-  ---
-  Step 2 — create a message
+# Terminal 1 — Backend
+cd symph-back-end && workon symphony
+alembic upgrade head
+fastapi dev app/main.py        # → http://127.0.0.1:8000/docs
 
-  curl -X POST http://127.0.0.1:8000/api/v1/messages \
-    -H "Authorization: Bearer test" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "agent_id": "<your-agent-uuid>",
-      "session_id": "00000000-0000-0000-0000-000000000001",
-      "role": "user",
-      "content": "Hello, what can you do?"
-    }'
+# Terminal 2 — Frontend
+cd symph-front-end && npm install && npm run dev
+# → http://localhost:5173/src/html/agents.html
+```
 
-  session_id is just a UUID you generate to group a conversation — use any UUID.
+> In local dev, set `BASE_URL = "http://localhost:8000"` in `symph-front-end/src/js/api.js`.
 
-  ---
-  Step 3 — create a log
+---
 
-  curl -X POST http://127.0.0.1:8000/api/v1/logs \
-    -H "Authorization: Bearer test" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "level": "INFO",
-      "message": "Agent started successfully",
-      "agent_id": "<your-agent-uuid>",
-      "metadata": {"duration_ms": 42}
-    }'
+## URLs at a Glance
 
-  agent_id, workflow_id, and metadata are all optional on logs.
-
-  ---
-  Step 4 — verify retrieval
-
-  # Messages for your session
-  curl "http://127.0.0.1:8000/api/v1/messages?session_id=00000000-0000-0000-0000-000000000001" \
-    -H "Authorization: Bearer test"
-
-  # Logs filtered by level
-  curl "http://127.0.0.1:8000/api/v1/logs?level=INFO" \
-    -H "Authorization: Bearer test"
-
-  The Authorization: Bearer test header works because the auth stub accepts any token.
+| | Docker | Local Dev |
+|---|---|---|
+| Frontend | http://localhost | http://localhost:5173 |
+| Agents | http://localhost/src/html/agents.html | http://localhost:5173/src/html/agents.html |
+| Workflows | http://localhost/src/html/workflows.html | http://localhost:5173/src/html/workflows.html |
+| Messages | http://localhost/src/html/messages.html | http://localhost:5173/src/html/messages.html |
+| Logs | http://localhost/src/html/logs.html | http://localhost:5173/src/html/logs.html |
+| Agent Config | http://localhost/src/html/memory.html | http://localhost:5173/src/html/memory.html |
+| API docs | http://localhost:8000/docs | http://127.0.0.1:8000/docs |
 
 ---
 
 ## pgAdmin — Connecting to the Symphony Database
 
-pgAdmin is the recommended GUI for inspecting database state during demos and testing.
+pgAdmin is the recommended GUI for inspecting database state during demos.
 
-### Install pgAdmin (one-time)
-
-Download from https://www.pgadmin.org/download/ and install the macOS `.dmg`, or install via Homebrew:
+### Install (one-time)
 
 ```bash
 brew install --cask pgadmin4
 ```
 
-### Launch pgAdmin
+### Register the server (one-time)
 
-Open **Finder → Applications → pgAdmin 4** and double-click to launch.
-
-### Register the Symphony server (one-time setup)
-
-1. In the pgAdmin sidebar, right-click **Servers → Register → Server**
+1. Open pgAdmin → right-click **Servers → Register → Server**
 2. **General tab** — Name: `Symphony Local`
 3. **Connection tab**:
    - Host: `localhost`
    - Port: `5432`
    - Maintenance database: `postgres`
    - Username: `postgres`
-   - Password: `postgres` (or your local postgres password)
+   - Password: `postgres`
 4. Click **Save**
 
 ### Navigate to the Symphony database
-
-In the sidebar, expand:
 
 ```
 Servers → Symphony Local → Databases → symphony → Schemas → public → Tables
 ```
 
-Right-click any table → **View/Edit Data → All Rows** to inspect its contents.
+Right-click any table → **View/Edit Data → All Rows**.
 
-### Useful queries (Query Tool)
-
-Open the Query Tool via **Tools → Query Tool**, then run:
+### Useful queries
 
 ```sql
--- List all tables
+-- All tables
 SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
 
 -- Agents
 SELECT id, name, model, channels, status FROM agents;
 
--- Workflows and their graph definitions
+-- Workflows
 SELECT id, name, status, graph_definition FROM workflows;
 
 -- Workflow runs
@@ -170,304 +113,233 @@ SELECT id, level, message, agent_id, created_at FROM logs ORDER BY created_at DE
 UPDATE workflow_runs SET status = 'failed', error = 'manually reset' WHERE status = 'running';
 ```
 
-### Make sure PostgreSQL is running
-
-```bash
-brew services list | grep postgresql     # check status
-brew services restart postgresql         # restart if needed
-```
-
 ---
 
-## Visual Workflow Builder — Testing Instructions
-
-### Prerequisites
-Both servers must be running:
-
-  # Backend (terminal 1)
-  cd ~/tech/yuno/symph-back-end && workon symphony
-  fastapi dev        # → http://127.0.0.1:8000
-
-  # Frontend (terminal 2)
-  cd ~/tech/yuno/symph-front-end && npm run dev
-  # → http://localhost:5173/src/html/workflows.html
+## Visual Workflow Builder — Testing
 
 ### Step 1 — Create a workflow
-1. Open http://localhost:5173/src/html/workflows.html
-2. Click **+ New Workflow**
-3. Enter a name (e.g. `My First Workflow`) and click **Create**
-4. The workflow appears in the table
+1. Open the Workflows page
+2. Click **+ New Workflow**, enter a name, click **Create**
 
 ### Step 2 — Open the visual builder
-Click **Edit** on the workflow. The SVG canvas builder expands with:
+Click **Edit**. The SVG canvas builder opens with:
 - **Left palette** — Start, Agent, Condition, End node chips
 - **Centre canvas** — empty SVG grid
-- **Right config panel** — "Select a node" placeholder
+- **Right config panel** — node properties
 
 ### Step 3 — Build a simple Start → End graph
 1. Drag **Start** from the palette onto the canvas
-2. Drag **End** from the palette to the right of Start
-3. Hover the Start node until the purple output port dot appears on the right edge
-4. Drag from the output port to the End node's input port (left edge)
-5. A curved bezier arrow connects them
+2. Drag **End** to the right of Start
+3. Hover Start until the purple output port dot appears on its right edge
+4. Drag from the output port to End's input port (left edge) — a bezier arrow connects them
 
-### Step 4 — Save
-Click **Save** in the toolbar. A "Workflow saved" toast confirms the graph_definition is persisted.
+### Step 4 — Save and Run
+- Click **Save** — "Workflow saved" toast confirms persistence
+- Click **Run** — the run log panel opens and streams live WebSocket events:
 
-### Step 5 — Run
-Click **Run**. The run log panel below the canvas opens and streams live WebSocket events:
+```
+→ node_enter: start
+✓ node_complete: start
+⟶ edge_traverse: e1
+→ node_enter: end
+✓ node_complete: end
+✓ Run completed
+```
 
-  → node_enter: start
-  ✓ node_complete: start
-  ⟶ edge_traverse: e1
-  → node_enter: end
-  ✓ node_complete: end
-  ✓ Run completed
+### Step 5 — Check run history
+The **Run History** section at the bottom lists the run with a `completed` badge and timestamps.
 
-### Step 6 — Check run history
-The **Run History** collapsible section at the bottom lists the run with a `completed` badge and timestamps.
-
-### Step 7 — Test a condition feedback loop
+### Step 6 — Test a condition feedback loop
 1. Drag **Start → Agent → Condition → End** onto the canvas
 2. Click the **Agent** node → pick an agent from the config panel dropdown
 3. Click the **Condition** node → set true/false labels
 4. Draw edges: Condition `true` port → End, Condition `false` port → Agent (feedback loop)
-5. Save and Run — the loop runs up to 5 times then exits automatically via `condition_result = True`
+5. Optionally set **Max Loops** in the toolbar (default: 20)
+6. Save and Run — the loop iterates up to `max_loops` times then exits automatically
 
-### Step 8 — Verify in pgAdmin
-Open pgAdmin (see **pgAdmin — Connecting to the Symphony Database** above) and run:
+### Step 7 — Verify in pgAdmin
 
-  SELECT * FROM workflows;        -- graph_definition JSONB, status = 'draft'
-  SELECT * FROM workflow_runs;    -- status, output JSONB, started_at, finished_at
+```sql
+SELECT * FROM workflows;      -- graph_definition JSONB, status = 'draft'
+SELECT * FROM workflow_runs;  -- status, output JSONB, started_at, finished_at
+```
+
+---
+
+## Tests
+
+139 integration and unit tests, all passing.
+
+```bash
+# One-time: create test database
+psql -U postgres -c "CREATE DATABASE symphony_test;"
+
+# Run all tests
+workon symphony && pytest
+
+# With coverage
+pytest --cov=app --cov-report=term-missing
+```
+
+---
+
+## Slack Integration — Testing
+
+### Prerequisites
+- A Slack workspace where you can install apps
+- `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` set in `.env`
+- Backend running
+
+### Step 1 — Configure an agent for Slack
+1. Open the Agent Configuration page (memory.html)
+2. Select an agent from the dropdown
+3. Under **Channels**, add `slack`
+4. Save
+
+### Step 2 — Verify bot connected
+Backend startup logs should show:
+
+```
+INFO  Slack bot connected via Socket Mode.
+```
+
+### Step 3 — Send a direct message
+In Slack, open a DM with your Symphony bot and send any message. The bot replies using the configured agent's model and system prompt.
+
+### Step 4 — Test @mention
+In any channel where the bot is invited, type `@SymphonyBot Hello`. The bot strips the mention prefix and replies.
+
+### Step 5 — Verify message persistence
+Messages are stored in the `messages` table and visible in the UI (messages.html) or via:
+
+```sql
+SELECT * FROM messages ORDER BY created_at DESC LIMIT 10;
+```
+
+### Known behaviour
+- Routes to the **first** agent with `"slack"` in its channels — configure only one agent per workspace
+- Slack channel ID is used as `session_id` — each channel maintains its own conversation context
+- Falls back to `claude-haiku-4-5-20251001` with a generic prompt if no agent is configured for Slack
+- Bot silently disables itself if tokens are missing or placeholder values
 
 ---
 
 ## LangSmith — Viewing Traces
 
-LangSmith gives you a live view of every LLM call Symphony makes — prompts, responses, token usage, cost, and latency. No code changes are needed; it activates via environment variables.
-
 ### Prerequisites
+- `LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT=symphony` set in `.env`
+- Backend restarted after setting these values
 
-- `LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT=symphony` set in `symph-back-end/.env` (see Readme for setup)
-- Backend running: `workon symphony && fastapi dev app/main.py`
+### Steps
 
-### Step 1 — Open LangSmith
+1. Go to [smith.langchain.com](https://smith.langchain.com) and sign in
+2. Click **Projects** in the left sidebar → select **symphony**
+3. Click the **Traces** tab — each row is one traced run (model, tokens, cost, latency)
+4. Click any row to see the full call tree: each LangGraph node shows prompt, response, token breakdown
 
-Go to [smith.langchain.com](https://smith.langchain.com) and sign in.
+### Trigger traces
 
-### Step 2 — Select the Symphony project
+- **Workflow**: run any workflow with an Agent node
+- **Slack**: send a DM or @mention to the Symphony bot
 
-In the left sidebar, click **Projects** and select **symphony**. If it doesn't appear yet, trigger a trace first (run a workflow or send a Slack message) — LangSmith creates the project on the first trace.
+### Filter traces
 
-### Step 3 — View traces
-
-Click the **Traces** tab. Each row is one traced run, showing:
-- Run name and status (success / error)
-- Model used
-- Total tokens and estimated cost
-- Latency
-
-### Step 4 — Inspect a trace
-
-Click any row to open the full trace detail:
-- **Tree view** — each LangGraph node is a collapsible step; expand to see the exact prompt and response for that node
-- **Metadata** — run ID, timestamps, token breakdown (input / output / total)
-- **Feedback** — you can manually annotate runs with thumbs up/down for evaluation
-
-### Step 5 — Trigger a workflow trace
-
-1. Open http://localhost:5173/src/html/workflows.html
-2. Run any workflow that includes an **Agent** node
-3. Switch to LangSmith — the new trace appears within a few seconds
-
-### Step 6 — Trigger a Slack trace
-
-Send a DM or @mention to the Symphony bot in Slack. The resulting LLM call appears in LangSmith as a single-step trace with the agent's system prompt and the user's message.
-
-### Step 7 — Filter and search
-
-Use the **Filter** bar at the top of the Traces list to narrow by:
-- **Status**: success / error
-- **Model**: e.g. `claude-sonnet-4-6`
-- **Latency**: slow runs
-- **Date range**: last hour, day, week
+Use the **Filter** bar to narrow by status, model, latency, or date range.
 
 ---
 
-## Slack Integration — Testing Instructions
+## Data Ingestion Pipeline — Testing
 
 ### Prerequisites
-- A Slack workspace where you can install apps
-- `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` set in your environment (see Readme)
-- Backend running: `workon symphony && fastapi dev app/main.py`
-
-### Step 1 — Configure an agent for Slack
-1. Open http://localhost:5173/src/html/memory.html
-2. Select an agent from the dropdown
-3. Under **Agent Configuration**, find the **Channels** section and add `slack`
-4. Save
-
-### Step 2 — Verify the bot connected
-Check the backend terminal on startup — you should see:
-
-  INFO  Slack bot connected via Socket Mode.
-
-If you see `SLACK_BOT_TOKEN or SLACK_APP_TOKEN not set — Slack bot disabled`, check your environment variables.
-
-### Step 3 — Send a direct message
-1. In Slack, open a DM with your Symphony bot
-2. Send any message (e.g. `Hello, what can you do?`)
-3. The bot replies using the configured agent's model and system prompt
-
-### Step 4 — Test @mention
-1. In any channel where the bot is invited, type `@SymphonyBot Hello`
-2. The bot strips the mention prefix and replies
-
-### Step 5 — Verify message persistence
-Messages from Slack are stored in the `messages` table and visible in the Symphony UI:
-
-  # Check via SQL
-  SELECT * FROM messages ORDER BY created_at DESC LIMIT 10;
-
-  # Or via the UI
-  Open http://localhost:5173/src/html/messages.html
-
-### Known behaviour
-- The bot routes to the **first** agent with `"slack"` in its channels — only configure one agent per Slack workspace
-- The Slack channel ID is used as `session_id`, so each channel maintains its own conversation context
-- If no agent has `"slack"` in channels, the bot falls back to `claude-haiku-4-5-20251001` with a generic system prompt (messages are not persisted in this fallback case)
-- The bot disables itself silently if tokens are missing or still set to placeholder values
-
----
-
----
-
-## Data Ingestion Pipeline — Testing Instructions
-
-### Prerequisites
-- Backend and frontend running (see Workflow Builder prerequisites above)
-- `DATASET_DIR` set in `symph-back-end/.env` pointing to the `symph-prgm-mgmt/dataset` directory
-- `SLACK_REPORT_CHANNEL` set in `symph-back-end/.env` (e.g. `data-reports`) — bot must be invited to that channel
+- `DATASET_DIR` set in `.env` pointing to the `symph-prgm-mgmt/dataset` directory
+- `SLACK_REPORT_CHANNEL` set in `.env` (e.g. `data-reports`) — bot must be invited to that channel
 - `ANTHROPIC_API_KEY` set (the Report Agent node calls Claude)
 
 ### Step 1 — Instantiate the template
-1. Open http://localhost:5173/src/html/workflows.html
-2. In the **Templates** panel at the top, find **Data Ingestion Pipeline**
-3. Click **Use Template** — a new workflow is created, saved, and its cron schedule (`* * * * *`) is registered automatically
-4. The workflow appears in the workflow list with status `draft`
+1. Open the Workflows page
+2. In the **Templates** panel, find **Data Ingestion Pipeline**
+3. Click **Use Template** — the workflow is created and its cron schedule (`* * * * *`) is registered automatically
 
-### Step 2 — Drop a CSV file into the input directory
+### Step 2 — Drop a CSV into the input directory
 
 ```bash
-# Confirm directory structure
-ls /path/to/symph-prgm-mgmt/dataset/
-# should show: input/  output/  processed/  error/
-
-# Copy the sample file (or any CSV with headers)
-cp /path/to/symph-prgm-mgmt/dataset/input/real_estate.csv /path/to/symph-prgm-mgmt/dataset/input/
+ls $DATASET_DIR/          # should show: input/ output/ processed/ error/
+cp $DATASET_DIR/input/real_estate.csv $DATASET_DIR/input/test_run.csv
 ```
 
-A sample file (`real_estate.csv`) is already included. The pipeline runs on a 1-minute cron, so it will pick up any CSV placed in `input/` on the next tick.
+A sample `real_estate.csv` is already included. The pipeline runs on a 1-minute cron.
 
-### Step 3 — Watch it run
-Check the backend terminal for log output:
+### Step 3 — Watch backend logs
 
 ```
-INFO  Tool 'csv_scanner' started
 INFO  Tool 'csv_scanner' completed
 INFO  Condition node: file_check — condition_result = True
-INFO  Tool 'data_quality' started
 INFO  Tool 'data_quality' completed
-INFO  Tool 'db_ingestor' started
 INFO  Tool 'db_ingestor' completed
-INFO  Tool 'data_profiler' started
 INFO  Tool 'data_profiler' completed
-INFO  Node 'report' started (model: claude-haiku-4-5-20251001)
 INFO  Node 'report' completed — ↑NNN ↓NNN tokens, $0.XXXX
-INFO  Tool 'report_publisher' started
 INFO  Tool 'report_publisher' completed
 INFO  Workflow run <uuid> completed
 ```
 
-### Step 4 — Verify output files
+### Step 4 — Verify output
 
 ```bash
-ls dataset/output/      # ingested rows CSV + *_report_*.txt
-ls dataset/processed/   # original CSV moved here
-ls dataset/error/       # rejected rows CSV (blanks/duplicates only)
+ls $DATASET_DIR/output/     # ingested rows CSV + *_report_*.txt
+ls $DATASET_DIR/processed/  # original CSV moved here
+ls $DATASET_DIR/error/      # rejected rows (blanks/duplicates only)
 ```
 
-### Step 5 — Verify data in PostgreSQL
-Open pgAdmin and run:
+### Step 5 — Verify in PostgreSQL
 
 ```sql
--- See the ingested table (name derived from filename, e.g. real_estate)
 SELECT * FROM real_estate LIMIT 10;
 
--- Check the workflow run
 SELECT id, status, started_at, finished_at, output->'usage' AS usage
 FROM workflow_runs ORDER BY started_at DESC LIMIT 5;
 ```
 
-### Step 6 — Verify Slack report
-Check the `#data-reports` channel (or whatever `SLACK_REPORT_CHANNEL` is set to) — a formatted report summarising the ingestion stats and a data profile narrative should appear.
-
-### Step 7 — Drop another file
-Place a second CSV in `input/`. The pipeline picks it up on the next cron tick (within 1 minute). Files already in `processed/` are not re-processed.
+### Step 6 — Check Slack
+A formatted report summarising ingestion stats and data profile narrative appears in `#data-reports`.
 
 ### Troubleshooting
+
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | No run triggered | Scheduler not started | Restart backend; check for `Scheduler started` log |
 | `condition_result = False` | No CSV in input/ | Drop a file into `dataset/input/` |
 | All rows in error/ | Data quality rejecting everything | Check CSV has at least some non-blank rows |
-| Slack message missing | Token/channel misconfigured | Check `SLACK_BOT_TOKEN` and `SLACK_REPORT_CHANNEL` env vars |
+| Slack message missing | Token/channel misconfigured | Check `SLACK_BOT_TOKEN` and `SLACK_REPORT_CHANNEL` |
 
 ---
 
-## SRE Job Summary — Testing Instructions
+## SRE Job Summary — Testing
 
 ### Prerequisites
-- Backend running: `workon symphony && fastapi dev app/main.py`
-- `SLACK_BOT_TOKEN` set and the bot invited to the `#job-summary` Slack channel
-- At least a few workflow runs in the database (run the Data Ingestion Pipeline a few times first)
+- Backend running
+- `SLACK_BOT_TOKEN` set and bot invited to `#job-summary`
+- At least a few workflow runs in the database
 
 ### Step 1 — Instantiate the template
-1. Open http://localhost:5173/src/html/workflows.html
-2. In the **Templates** panel, find **SRE Job Summary**
-3. Click **Use Template** — the workflow is created and its hourly cron (`0 * * * *`) is registered
+1. Open the Workflows page → **Templates** panel → **SRE Job Summary** → **Use Template**
 
 ### Step 2 — Trigger manually (don't wait an hour)
-Run the workflow directly via the API:
 
 ```bash
 # Get the workflow ID
-curl http://127.0.0.1:8000/api/v1/workflows \
+curl http://localhost:8000/api/v1/workflows \
   -H "Authorization: Bearer test" | python3 -m json.tool | grep -A2 "SRE"
 
-# Trigger a run (replace <workflow-id>)
-curl -X POST http://127.0.0.1:8000/api/v1/workflows/<workflow-id>/run \
+# Trigger a run
+curl -X POST http://localhost:8000/api/v1/workflows/<workflow-id>/run \
   -H "Authorization: Bearer test" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
 
-Or open the workflow in the UI (click **Edit**) and click **Run**.
+Or open the workflow in the UI and click **Run**.
 
-### Step 3 — Watch the backend logs
-
-```
-INFO  Tool 'job_stats_collector' started
-INFO  Tool 'job_stats_collector' completed
-INFO  Node 'report' started (model: claude-haiku-4-5-20251001)
-INFO  Node 'report' completed — ↑NNN ↓NNN tokens, $0.XXXX
-INFO  Tool 'report_publisher' started
-INFO  Tool 'report_publisher' completed
-INFO  Workflow run <uuid> completed
-```
-
-### Step 4 — Verify Slack message
-Check `#job-summary` in Slack. You should see a bullet-point health summary like:
+### Step 3 — Check Slack `#job-summary`
 
 ```
 *Symphony Job Health Summary — Last 24h*
@@ -477,41 +349,30 @@ Check `#job-summary` in Slack. You should see a bullet-point health summary like
 *Per-workflow breakdown:*
 ✅ Data Ingestion Pipeline — 7 completed
 ❌ My Test Workflow — 1 failed  ⚠️ Needs attention
-
-Last updated: 2026-05-30 14:00 UTC
 ```
 
-### Step 5 — Verify the run in pgAdmin
+### Step 4 — Verify in pgAdmin
 
 ```sql
-SELECT id, status, started_at, finished_at, output->'usage' AS usage
-FROM workflow_runs ORDER BY started_at DESC LIMIT 5;
+SELECT id, status, started_at, finished_at FROM workflow_runs ORDER BY started_at DESC LIMIT 5;
 ```
-
-The SRE run appears with `status = 'completed'`. Note: no report file is written to disk (only Slack posting).
-
-### Step 6 — Verify hourly schedule
-To confirm the scheduler has registered the cron, check backend startup logs:
-
-```
-INFO  Registered cron for workflow '<id>' (SRE Job Summary): 0 * * * *
-```
-
-The job will fire automatically every hour at :00.
 
 ### Troubleshooting
+
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | No Slack message | Bot not in #job-summary | `/invite @SymphonyBot` in the channel |
 | Empty stats | No workflow runs in DB | Run the Data Ingestion Pipeline a few times first |
-| `SLACK_BOT_TOKEN` error | Token missing | Set in `symph-back-end/.env` and restart |
+| `SLACK_BOT_TOKEN` error | Token missing | Set in `.env` and restart |
 
 ---
 
-### Known behaviour (Workflow Builder)
-- Feedback loops exit after **5 agent passes** (MAX_LOOPS = 5) — condition_result is forced to True
-- Agent nodes require ANTHROPIC_API_KEY in the environment to call Claude
-- Start / End / Condition nodes run without an API key
+## Known Behaviour
+
+- Feedback loops exit after **max_loops** agent passes (default: 20, configurable per workflow in the builder toolbar) — `condition_result` is forced to `True` on the final iteration
+- Agent nodes require `ANTHROPIC_API_KEY` to call Claude; Start / End / Condition nodes run without a key
 - Any run stuck in `running` status can be reset:
 
-  UPDATE workflow_runs SET status = 'failed', error = 'manually reset' WHERE status = 'running';
+```sql
+UPDATE workflow_runs SET status = 'failed', error = 'manually reset' WHERE status = 'running';
+```
