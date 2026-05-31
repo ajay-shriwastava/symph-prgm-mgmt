@@ -51,6 +51,7 @@ requirements.txt
 - **persistence-layer** (2026-05-27): Full CRUD for Agent, Workflow, Message, Log, AgentMemory. PostgreSQL + Alembic + async SQLAlchemy. Frontend tabular views with pagination, inline forms, toast errors.
 - **visual-workflow-builder** (2026-05-28): SVG canvas with drag-drop nodes (start/agent/condition/end), cubic bezier edges with arrowheads, config panel, LangGraph runner, WebSocket run streaming, run history panel. Migration 0003 adds `workflow.status` column + `workflow_runs` table.
 - **agent-configuration** (2026-05-29): Expanded memory.html into 5-tab Agent Config page (Memory, Schedules, Skills, Interaction Rules, Guardrails). Migration 0004 adds 3 JSONB columns to agents + agent_schedules table. New router: `app/routers/agent_config.py`. Nav label "Memory" renamed to "Config". AgentOut schema extended with skills/interaction_rules/guardrails fields.
+- **agent-to-agent-handoffs** (2026-05-31): No DB migration. `messages.role` Literal extended to include `"agent"`. `GET /api/v1/messages` gains `role` filter query param. `workflow_runner.py` `_make_agent_node()` persists agent output to `messages` table (role=agent, session_id=run_id, agent_id=source agent) after each agent node completes — fire-and-forget with exception swallowing. `messages.html` gains "Agent Handoffs" tab with styled cards (agent name resolved from agent map, session truncated, timestamp). `api.js` `getMessages` updated to pass `role` param.
 
 ## API Naming Convention
 

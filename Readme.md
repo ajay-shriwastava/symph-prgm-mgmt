@@ -89,7 +89,7 @@ Shut down with `q + Enter` or `Ctrl+C`.
 |---|---|
 | /src/html/agents.html | Create, edit, delete agents |
 | /src/html/workflows.html | Create, edit, delete workflows |
-| /src/html/messages.html | View and filter messages by session or agent |
+| /src/html/messages.html | View all messages (with session/agent filters) and Agent Handoffs tab |
 | /src/html/logs.html | View logs filtered by level, agent, or workflow |
 | /src/html/memory.html | Agent Configuration: Memory, Schedules, Skills, Interaction Rules, Guardrails |
 
@@ -236,7 +236,7 @@ Auth is currently a stub — any non-empty token is accepted.
 | Agents | GET/POST `/api/v1/agents`, GET/PUT/DELETE `/api/v1/agents/{id}` |
 | Workflows | GET/POST `/api/v1/workflows`, GET/PUT/DELETE `/api/v1/workflows/{id}` |
 | Workflow Runs | POST `/api/v1/workflows/{id}/run`, GET `/api/v1/workflows/{id}/runs`, GET `/api/v1/workflows/{id}/runs/{run_id}` |
-| Messages | GET/POST `/api/v1/messages`, GET/DELETE `/api/v1/messages/{id}` |
+| Messages | GET/POST `/api/v1/messages`, GET/DELETE `/api/v1/messages/{id}` — filter by `session_id`, `agent_id`, `role` |
 | Logs | GET/POST `/api/v1/logs`, GET `/api/v1/logs/{id}` |
 | Agent Memory | GET/POST `/api/v1/agents/{id}/memory`, GET/DELETE `/api/v1/agents/{id}/memory/{key}` |
 | Agent Schedules | GET/POST `/api/v1/agents/{id}/schedules`, PUT/DELETE `/api/v1/agents/{id}/schedules/{schedule_id}` |
