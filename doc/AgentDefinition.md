@@ -11,7 +11,7 @@
 6. Select Tools
 - All Tools
 - Read Only Tools
-- Edit Toolks
+- Edit Tools
 - Execution Tools
 - MCP Tools
 7. Select Model (and Model Provider)

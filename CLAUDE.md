@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the program management repository for **Symphony** — Yuno's Agentic AI Orchestration Platform. It serves as the planning, documentation, and architecture hub for the Symphony system, which consists of two sibling repositories:
+This is the program management repository for **Symphony** — an Agentic AI Orchestration Platform. It serves as the planning, documentation, and architecture hub for the Symphony system, which consists of two sibling repositories:
 
 - `symph-front-end` — Plain vanilla HTML/CSS/JS frontend (Vite dev server)
 - `symph-back-end` — FastAPI backend running LangGraph agents
