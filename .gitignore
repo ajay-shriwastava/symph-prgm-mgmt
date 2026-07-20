@@ -24,3 +24,6 @@ htmlcov/
 
 #Data
 dataset/
+
+#Browser Testing Playwright
+.playwright-mcp/
