@@ -1,7 +1,7 @@
 
 # Symphony — Agentic AI Orchestration Platform
 
-Vite frontend + FastAPI backend + PostgreSQL database.
+React + TypeScript frontend + FastAPI backend + PostgreSQL database.
 
 ---
 
@@ -15,7 +15,7 @@ Vite frontend + FastAPI backend + PostgreSQL database.
 | Repo | Link | Purpose |
 |---|---|---|
 | **symph-back-end** | [github.com/ajay-shriwastava/symph-back-end](https://github.com/ajay-shriwastava/symph-back-end) | FastAPI server — REST API, LangGraph workflow execution, Slack bot, APScheduler cron, Alembic migrations, WebSocket broadcast, Docker Compose entry point |
-| **symph-front-end** | [github.com/ajay-shriwastava/symph-front-end](https://github.com/ajay-shriwastava/symph-front-end) | Vanilla HTML/CSS/JS frontend — visual workflow builder, agent management, live run panel, Vite dev server (local) / nginx (Docker) |
+| **symph-front-end** | [github.com/ajay-shriwastava/symph-front-end](https://github.com/ajay-shriwastava/symph-front-end) | React + TypeScript SPA — visual workflow builder, agent management, live run panel, Vite dev server (local) / nginx (Docker) |
 
 Both repos must be cloned side-by-side (`docker-compose.yml` in `symph-back-end` references `../symph-front-end`).
 
@@ -104,7 +104,7 @@ docker compose down -v       # stops containers AND deletes the database
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vanilla HTML + CSS + JavaScript, served by Vite (dev) / nginx (Docker) |
+| Frontend | React 19 + TypeScript + Vite (dev) / nginx (Docker) |
 | Backend | FastAPI (Python 3.11+), async SQLAlchemy 2, Alembic |
 | Database | PostgreSQL (asyncpg driver) |
 | Agent runtime | LangGraph + langchain-anthropic (integrated into FastAPI services) |
@@ -154,10 +154,10 @@ fastapi dev app/main.py        # → http://127.0.0.1:8000/docs
 
 ```bash
 npm install
-npm run dev                    # → http://localhost:5173/src/html/agents.html
+npm run dev                    # → http://localhost:5173
 ```
 
-> In local dev without Docker, set `BASE_URL = "http://localhost:8000"` in `symph-front-end/src/js/api.js`.
+> In local dev without Docker, set `VITE_API_BASE=http://localhost:8000` in `symph-front-end/.env`.
 
 ---
 

@@ -39,12 +39,18 @@ requirements.txt
 
 ## Frontend Structure (symph-front-end/src)
 
-- `api.js` — shared fetch helper, all entity API functions exported
-- `nav.js` — `renderNav(activePage)` + `showToast(msg, type)` exported
-- `symphony.css` — shared design tokens, nav, table, form, badge, toast, pagination, builder styles
-- One `.html` per entity: agents, workflows, messages, logs, memory
-- Pages use `<script type="module">` importing from `./api.js` and `./nav.js`
-- DOM text set via `textContent` (not innerHTML) for user/API data
+- React 19 + TypeScript SPA, React Router v7, Vite
+- `js/api.ts` — all TypeScript interfaces + `apiFetch<T>()` + `WS_BASE`; one function per API endpoint
+- `config.ts` — `PAGE_SIZE`, `MODEL_OPTIONS`, `CHANNELS`, `CHANNEL_LABELS`, `AUTH_TOKEN_KEY`, `DEV_TOKEN`, `TOAST_DURATION_MS`
+- `App.tsx` — all routes lazy-loaded via `React.lazy()`, wrapped in `ErrorBoundary` + `Suspense`
+- `pages/` — one `.tsx` file (or subfolder) per route: `Agents.tsx`, `Workflows.tsx`, `Messages.tsx`, `Logs.tsx`, `AgentConfig.tsx`
+- `pages/workflows/` — `WorkflowBuilder.tsx`, `NodeConfigPanel.tsx`, `TemplatesSection.tsx`, `graph-helpers.ts`
+- `pages/agent-config/` — `MemoryTab.tsx`, `SchedulesTab.tsx`, `SkillsTab.tsx`, `InteractionRulesTab.tsx`, `GuardrailsTab.tsx`, `types.ts`
+- `components/` — `Nav.tsx`, `Pagination.tsx`, `LoadingRows.tsx`, `ErrorBoundary.tsx`
+- `hooks/useApiList.ts` — generic paginated list hook: `useApiList<T>(fetcher, limit)` → `{ items, total, skip, loading, setSkip, reload }`
+- `context/ToastContext.tsx` — `ToastProvider` + `useToast()` hook
+- `utils/truncate.ts` — `truncate(str, n)`
+- JSX escaping prevents XSS by default; no `dangerouslySetInnerHTML`
 
 ## Completed Features
 

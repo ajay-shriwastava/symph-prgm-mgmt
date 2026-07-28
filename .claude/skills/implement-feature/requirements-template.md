@@ -15,7 +15,7 @@ apply sensible defaults. Do not leave fields blank.
 - feature_name:        <short identifier, e.g. "Agent Workflow Builder">
 - feature_description: <original user description, verbatim>
 - tech_stack:
-    frontend:  Vanilla HTML + CSS + JavaScript · Vite
+    frontend:  React 19 · TypeScript · React Router v7 · Vite
     backend:   FastAPI · LangGraph · SQLAlchemy async · PostgreSQL · Alembic · Python 3.11+
 - auth_model:          JWT bearer token via FastAPI Depends(get_current_user) | none
 - base_api_url:        /api/v1

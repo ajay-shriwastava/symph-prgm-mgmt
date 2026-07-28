@@ -6,14 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the program management repository for **Symphony** — an Agentic AI Orchestration Platform. It serves as the planning, documentation, and architecture hub for the Symphony system, which consists of two sibling repositories:
 
-- `symph-front-end` — Plain vanilla HTML/CSS/JS frontend (Vite dev server)
+- `symph-front-end` — React 19 + TypeScript SPA (Vite dev server)
 - `symph-back-end` — FastAPI backend running LangGraph agents
 
 ## Architecture
 
 Symphony is a multi-agent AI platform. The tech stack decisions recorded here:
 
-- **Frontend**: Vite + vanilla HTML/CSS/JS (planned migration path to React)
+- **Frontend**: React 19 + TypeScript + React Router v7 + Vite; lazy-loaded routes, custom hooks, centralized config
 - **Backend**: FastAPI + LangGraph agents, running in a Python virtualenv named `symphony`
 - **Agent system**: Agents are defined with a structured template covering system prompt, responsibilities, decision framework, quality checks, output format, edge cases, and persistent memory (`Memory.md`)
 
@@ -21,8 +21,10 @@ Symphony is a multi-agent AI platform. The tech stack decisions recorded here:
 
 ### Frontend (`symph-front-end`)
 ```bash
-npm run dev        # Start Vite dev server at http://localhost:5173/
-# Quit: q + Enter, or Ctrl+C
+npm run dev        # Start Vite dev server at http://localhost:5173
+npm test           # Run Vitest tests
+npm run lint       # ESLint
+# Quit: Ctrl+C
 ```
 
 ### Backend (`symph-back-end`)

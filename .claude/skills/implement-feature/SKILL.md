@@ -3,7 +3,7 @@ name: implement-feature
 description: >
   Translates a feature name and description into a full-stack implementation by orchestrating
   a team of sub-agents: a tech lead who owns technical design and coordination, a frontend
-  developer who builds the UI in vanilla HTML/CSS/JS served by Vite, and a backend developer
+  developer who builds the UI in React + TypeScript served by Vite, and a backend developer
   who builds the API with FastAPI + LangGraph + PostgreSQL.
   Use this skill whenever a user says "implement a feature", "build a feature", "add feature X",
   "develop feature Y", or provides a feature name and description and wants working code generated.
@@ -27,7 +27,7 @@ for managing everything visually.
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vanilla HTML + CSS + JavaScript, bundled and served by **Vite** |
+| Frontend | **React 19 + TypeScript**, bundled and served by **Vite** |
 | Backend | **FastAPI** (Python) |
 | AI / Agent runtime | **LangGraph** (integrated into FastAPI services) |
 | Database | **PostgreSQL** (accessed via SQLAlchemy async ORM) |
@@ -55,10 +55,11 @@ User Input
     ├──────────────────────────────────────────┐
     ▼                                          ▼
 [symphony-frontend-developer]      [symphony-backend-developer]
-  • Vanilla HTML/CSS/JS pages           • FastAPI routers + Pydantic schemas
-  • Vite project structure              • LangGraph graphs / nodes / edges
-  • Fetch-based API client module       • SQLAlchemy async models + Alembic migrations
-  • WebSocket client (where needed)     • WebSocket broadcast logic (where needed)
+  • React 19 + TypeScript pages/        • FastAPI routers + Pydantic schemas
+    components (.tsx)                   • LangGraph graphs / nodes / edges
+  • Vite project structure              • SQLAlchemy async models + Alembic migrations
+  • apiFetch API client (api.ts)        • WebSocket broadcast logic (where needed)
+  • WebSocket client (where needed)
     │                                          │
     └──────────────────┬────────────────────────┘
                        ▼
