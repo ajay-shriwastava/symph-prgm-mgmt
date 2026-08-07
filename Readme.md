@@ -231,6 +231,7 @@ Tests use a dedicated `symphony_test` database (never touches the dev database).
 | `LANGCHAIN_API_KEY` | — | LangSmith API key |
 | `LANGCHAIN_PROJECT` | `symphony` | LangSmith project name |
 | `POSTGRES_PASSWORD` | `postgres` | Docker Compose only |
+| `MESSAGE_LOG_LEVEL` | `MINIMAL` | Floor for message persistence: `MINIMAL` (agent role only), `STANDARD` (user + agent), `VERBOSE` (all roles). Per-agent setting can only raise above this floor. |
 
 ---
 
