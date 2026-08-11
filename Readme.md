@@ -180,6 +180,24 @@ Two pre-built templates available from the Workflows page:
 | Data Ingestion Pipeline | Every minute | Scans for CSVs, checks quality, ingests to DB, profiles data, posts report to Slack |
 | SRE Job Summary | Every hour | Queries 24h workflow run stats, writes a health summary, posts to Slack |
 
+### Workflow Tool Configuration
+Each workflow carries its own `tool_config` — a per-workflow override for operational parameters like `dataset_dir`, `slack_channel`, and `catalogue_path`. This creates a two-level hierarchy:
+
+| Level | Where set | Purpose |
+|---|---|---|
+| `.env` | Server environment | Secrets and infra defaults (API keys, DB URLs, fallback paths) |
+| `workflow.tool_config` | Symphony UI | Operational params per workflow instance — override the env defaults |
+
+**Where to configure:**
+- **Workflow Builder** — click any tool or agent node in the canvas; param fields appear inline in the config panel (e.g. *Dataset Directory* under a `csv_scanner` node).
+- **Config → Workflow Config** — flat audit view showing all tool params for a workflow in one place. Navigate via the Config page workflow dropdown.
+
+**How it works at runtime:**
+- Pipeline tool nodes: `tool_config[tool_name]` is merged into the state dict before `run()` is called. The tool reads the value from `state.get("dataset_dir") or DATASET_DIR`.
+- LLM tool nodes (`@tool`): config is injected via a Python `ContextVar` scoped to the workflow execution coroutine. The `@tool` function reads `tool_config_var.get().get(tool_name, {})` — the parameter is never exposed as an LLM-visible argument.
+
+**Templates pre-populate defaults** — instantiating a template fills `tool_config` with sensible placeholder values so you can see what's configurable immediately.
+
 ### Agent Messaging via Slack
 A Socket Mode Slack bot starts automatically with the FastAPI server. It routes DMs and @mentions to the configured agent and persists all messages. Configurable per-agent via Agent Configuration → Channels.
 
@@ -225,8 +243,8 @@ Tests use a dedicated `symphony_test` database (never touches the dev database).
 | `ANTHROPIC_API_KEY` | — | **Required** for LangGraph agent nodes and Slack bot |
 | `SLACK_BOT_TOKEN` | — | Slack bot token (`xoxb-...`) for Socket Mode |
 | `SLACK_APP_TOKEN` | — | Slack app-level token (`xapp-...`) for Socket Mode |
-| `SLACK_REPORT_CHANNEL` | `data-reports` | Slack channel for pipeline reports |
-| `DATASET_DIR` | — | Path to dataset directory (Data Ingestion Pipeline template) |
+| `SLACK_REPORT_CHANNEL` | `data-reports` | Default Slack channel for pipeline reports. Can be overridden per workflow via `tool_config`. |
+| `DATASET_DIR` | — | Default dataset directory for pipeline tools. Can be overridden per workflow via `tool_config`. |
 | `LANGCHAIN_TRACING_V2` | `false` | Set to `true` to enable LangSmith tracing |
 | `LANGCHAIN_API_KEY` | — | LangSmith API key |
 | `LANGCHAIN_PROJECT` | `symphony` | LangSmith project name |
@@ -245,7 +263,9 @@ Start → Scan CSV → File Found? (condition)
   [true]  → Data Quality → Ingest to DB → Data Profile → Report Agent → Publish Report → End
 ```
 
-**Required env vars:** `DATASET_DIR`, `SLACK_REPORT_CHANNEL`, `ANTHROPIC_API_KEY`
+**Required env vars:** `ANTHROPIC_API_KEY`
+
+**Configurable via `tool_config`** (pre-populated on instantiation): `dataset_dir` (all pipeline tools), `slack_channel` (Publish Report)
 
 ### Template 2 — SRE Job Summary
 
@@ -254,6 +274,12 @@ Start → Collect Job Stats → SRE Report Agent → Post to Slack → End
 ```
 
 **Required env vars:** `SLACK_BOT_TOKEN` (bot must be invited to `#job-summary`)
+
+**Configurable via `tool_config`**: `slack_channel` (Post to Slack), pre-set to `job-summary`
+
+### Template 3 — Portfolio Recommendation
+
+**Configurable via `tool_config`**: `catalogue_path` (Product Universe Filter), `slack_channel` (RM Alert Publisher), pre-set to `portfolio-reco`
 
 ---
 
@@ -301,6 +327,7 @@ All endpoints under `/api/v1`. Auth is a stub — any non-empty Bearer token is 
 | Workflows | GET/POST `/workflows`, GET/PUT/DELETE `/workflows/{id}` |
 | Workflow Runs | POST `/workflows/{id}/run`, GET `/workflows/{id}/runs`, GET `/workflows/{id}/runs/{run_id}` |
 | Templates | GET `/templates`, POST `/templates/{id}/instantiate` |
+| Tools | GET `/tools/params` |
 | Messages | GET/POST `/messages`, GET/DELETE `/messages/{id}` |
 | Logs | GET/POST `/logs`, GET `/logs/{id}` |
 | WebSocket | `ws://localhost:8000/ws/workflows/{id}/runs/{run_id}?token=<token>` |

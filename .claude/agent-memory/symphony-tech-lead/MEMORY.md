@@ -32,7 +32,7 @@ requirements.txt
 - Log ORM uses `metadata_` (column alias `metadata`) to avoid SQLAlchemy reserved name conflict. Router manually maps it to `LogOut`.
 - AgentMemory upsert: PostgreSQL `INSERT ... ON CONFLICT (agent_id, key) DO UPDATE` via `sqlalchemy.dialects.postgresql.insert`.
 - All list endpoints return `{ items, total, skip, limit }` envelope.
-- Alembic: `0001_initial_schema.py` creates all 5 original tables. `0003` adds workflow.status + workflow_runs table. `0004` adds skills/interaction_rules/guardrails JSONB columns to agents + creates agent_schedules table. Latest migration is `0012_message_log_level.py` — always check `alembic/versions/` before naming a new migration, as the spec-provided name may be stale.
+- Alembic: `0001_initial_schema.py` creates all 5 original tables. `0003` adds workflow.status + workflow_runs table. `0004` adds skills/interaction_rules/guardrails JSONB columns to agents + creates agent_schedules table. Latest migration is `0013_workflow_tool_config.py` — always check `alembic/versions/` before naming a new migration, as the spec-provided name may be stale.
 - WebSocket routes need a SEPARATE APIRouter with no prefix (`ws_router`). Export it from the router module and register it in main.py separately. Do NOT put `@router.websocket` on a prefixed APIRouter.
 - Background tasks needing DB access: use `asyncio.create_task()` with a new `async with AsyncSessionLocal() as bg_db` — never reuse the request-scoped `db` session after it closes.
 - workflow_runs router exports two objects: `router` (prefix `/api/v1/workflows`) and `ws_router` (no prefix, WebSocket at `/ws/workflows/{wf_id}/runs/{run_id}`).
@@ -60,6 +60,7 @@ requirements.txt
 - **agent-to-agent-handoffs** (2026-05-31): No DB migration. `messages.role` Literal extended to include `"agent"`. `GET /api/v1/messages` gains `role` filter query param. `workflow_runner.py` `_make_agent_node()` persists agent output to `messages` table (role=agent, session_id=run_id, agent_id=source agent) after each agent node completes — fire-and-forget with exception swallowing. `messages.html` gains "Agent Handoffs" tab with styled cards (agent name resolved from agent map, session truncated, timestamp). `api.js` `getMessages` updated to pass `role` param.
 - **full-message-capture** (2026-08-04): Migration 0011 adds `destination_type VARCHAR(50)` + `destination_ref TEXT` (both nullable) to messages. `MessageCreate` gains optional `destination_type: Optional[Literal[...]]` + `destination_ref`. `MessageOut` gains same fields. `_make_agent_node()` gains `next_node_type` + `next_agent_id` params; old single-record agent handoff block replaced with full 4-record block (system/user/assistant-or-tool/agent) in one AsyncSessionLocal. `WorkflowRunner.compile()` computes next-node type from `out_edges` before calling `_make_agent_node`. Frontend: `Message` interface gains `destination_type` + `destination_ref`. Messages page AllMessages tab gains Dest Type (badge) + Dest Ref (truncated) columns; colSpan updated 6→8. DEST_BADGE map added.
 - **message-log-level** (2026-08-04): Migration 0012 adds `message_log_level VARCHAR(20)` nullable to agents. `AgentCreate`, `AgentUpdate`, `AgentOut` schemas gain `message_log_level: Optional[Literal['MINIMAL','STANDARD','VERBOSE']] = None`. `workflow_runner.py` adds `_LEVEL_RANK` dict + `_effective_log_level(agent_obj)` (reads `MESSAGE_LOG_LEVEL` env var as floor, returns max(floor, agent level)). Message persistence block in `_make_agent_node` gated by effective level: MINIMAL→role=agent only; STANDARD→user+agent; VERBOSE→all roles. Frontend: `Agent` interface + `AgentCreatePayload` gain `message_log_level` field. `InteractionRulesTab.tsx` gains a Message Log Level dropdown (Inherit/MINIMAL/STANDARD/VERBOSE); save calls `updateInteractionRules` then `updateAgent` sequentially.
+- **workflow-tool-config** (2026-08-11): Migration 0013 adds `tool_config JSONB NOT NULL DEFAULT '{}'` to workflows. Two-level config hierarchy: `.env` (infra/secrets) → `workflow.tool_config` (operational params per workflow instance). `TOOL_PARAMS` dict in `app/tools/__init__.py` is the single source of truth for configurable params, served via `GET /api/v1/tools/params`. Pipeline tools receive config via state merge in `_make_tool_node`. LLM tools receive config via `ContextVar[dict]` in `app/tools/tool_context.py`, set/reset around `react_agent.ainvoke()` with token pattern. Templates pre-populate `tool_config_defaults` on instantiation. New route: `/config/workflows/:id` (WorkflowConfig page — flat audit view). Workflow Builder NodeConfigPanel shows param fields inline when a node is selected. `WorkflowRunner.compile()` and `run_workflow()` both accept `tool_config: dict | None = None`.
 
 ## API Naming Convention
 
@@ -68,6 +69,36 @@ requirements.txt
 - All REST endpoints require `Authorization: Bearer <token>`
 - WebSocket auth: `?token=<jwt>` query param
 - 404 on missing resource, 422 on Pydantic validation failure, 204 on successful delete
+
+## Dual-Wrapper Tool Pattern
+
+Every tool in `app/tools/` can be exposed as **both** a Pipeline Tool and an LLM Tool simultaneously. The two wrappers always remain separate because their contracts differ:
+
+| | LLM Tool (`@tool`) | Pipeline Tool (`run`) |
+|---|---|---|
+| Input | typed args or none | `state: dict` |
+| Output | JSON string for LLM to read | updated `state: dict` for LangGraph |
+| Caller | agent at inference time | workflow runner as a fixed graph node |
+
+**When to extract shared logic:**
+- **Same file, private helper** (e.g. `_find_latest_csv()`) — when both wrappers in the same file duplicate logic. This is the common case.
+- **Separate module** (e.g. `app/tools/core/`) — only when the logic is shared across multiple tool files.
+
+The wrappers never collapse into one. Even with a shared core, `scan_csv()` returns JSON and `run()` merges into state.
+
+**Example structure:**
+```python
+async def _core_logic() -> dict:          # shared, no LangChain/LangGraph coupling
+    ...
+
+@tool
+async def scan_csv() -> str:              # LLM Tool — JSON out
+    return json.dumps(await _core_logic())
+
+async def run(state: dict) -> dict:       # Pipeline Tool — state dict out
+    result = await _core_logic()
+    return {**state, "condition_result": result["found"], ...}
+```
 
 ## LangGraph Pattern
 
