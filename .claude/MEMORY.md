@@ -26,6 +26,9 @@ Each agent has persistent memory at `.claude/agent-memory/<agent-name>/` inside 
 - Agents never write code for each other's layers
 - "Subject Matter Not Known" = the signal when something is unclear (never guess)
 
+## Product Principles
+- **Prompt engineering is out of scope for Symphony.** No CoT, Few-Shot, or other prompt engineering techniques as platform features. Symphony's responsibility is orchestration (workflows, tools, channels, memory, guardrails). The system prompt textarea is the right boundary — agent authors handle their own prompts.
+
 ## implement-feature Skill Flow
 1. Gather inputs (feature_name, feature_description)
 2. Produce TechRequirementsBlock
