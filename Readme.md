@@ -210,6 +210,9 @@ Per-agent settings managed via the UI (memory page):
 - **Guardrails**: safety boundaries
 - **Channels**: messaging integrations (e.g. `slack`)
 
+### Doc Store (Knowledge Base)
+Upload PDF or plain text files, or paste raw text, to build a searchable vector knowledge base. Text is chunked, embedded via VoyageAI, and stored in PostgreSQL with pgvector. The Search tab performs semantic similarity search returning ranked chunks. File uploads accept `.pdf` (parsed with pypdf) and `.txt` (UTF-8 decode) via `POST /api/v1/knowledge/upload`.
+
 ### Observability
 LangSmith tracing for all LLM calls — full prompt/response, token counts, cost, and per-node latency. Opt-in via environment variables, no code changes needed.
 
@@ -328,6 +331,7 @@ All endpoints under `/api/v1`. Auth is a stub — any non-empty Bearer token is 
 | Workflow Runs | POST `/workflows/{id}/run`, GET `/workflows/{id}/runs`, GET `/workflows/{id}/runs/{run_id}` |
 | Templates | GET `/templates`, POST `/templates/{id}/instantiate` |
 | Tools | GET `/tools/params` |
+| Knowledge Base | GET/POST `/knowledge`, POST `/knowledge/upload`, DELETE `/knowledge/{id}`, POST `/knowledge/search` |
 | Messages | GET/POST `/messages`, GET/DELETE `/messages/{id}` |
 | Logs | GET/POST `/logs`, GET `/logs/{id}` |
 | WebSocket | `ws://localhost:8000/ws/workflows/{id}/runs/{run_id}?token=<token>` |
