@@ -111,6 +111,7 @@ docker compose down -v       # stops containers AND deletes the database
 | Real-time | FastAPI WebSocket endpoints, ConnectionManager pattern (`app/ws_manager.py`) |
 | Messaging | Slack Socket Mode bot (`app/slack_bot.py`) |
 | Scheduling | APScheduler cron integration (`app/scheduler.py`) |
+| MCP | FastMCP server at `POST /mcp` — agent memory + knowledge base tools with audit log |
 | Observability | LangSmith tracing (opt-in via env vars) |
 | Containerisation | Docker Compose (single-command setup) |
 
@@ -213,6 +214,26 @@ Per-agent settings managed via the UI (memory page):
 ### Doc Store (Knowledge Base)
 Upload PDF or plain text files, or paste raw text, to build a searchable vector knowledge base. Text is chunked, embedded via VoyageAI, and stored in PostgreSQL with pgvector. The Search tab performs semantic similarity search returning ranked chunks. File uploads accept `.pdf` (parsed with pypdf) and `.txt` (UTF-8 decode) via `POST /api/v1/knowledge/upload`.
 
+### MCP Server
+Symphony exposes an MCP (Model Context Protocol) server at `POST /mcp` that provides controlled, audited access to agent memory and the knowledge base. All external clients — Slack bot, Claude Desktop, Cursor — go through this single gateway.
+
+**8 tools across two categories:**
+
+| Category | Tools |
+|---|---|
+| Memory | `get_memory`, `list_memory`, `set_memory`, `delete_memory` |
+| Knowledge | `list_knowledge`, `add_knowledge`, `add_knowledge_file`, `search_knowledge` |
+
+**Auth:** `X-MCP-API-Key` header. Set `MCP_API_KEY` in `.env`. If the key is absent, the endpoint returns 503.
+
+**Audit log:** Every tool call is persisted to the `mcp_audit_log` table (fire-and-forget). View the audit log at `/mcp` in the UI.
+
+**Slack enrichment:** When `MCP_API_KEY` is set, the Slack bot automatically:
+- Injects agent memory and top-3 relevant knowledge chunks into each LLM system prompt
+- Parses `[REMEMBER key: value]` markers in LLM replies and writes them back to agent memory via `set_memory`
+
+**Claude Desktop integration:** Copy the `mcpServers` config JSON snippet from the MCP Server page in the UI.
+
 ### Observability
 LangSmith tracing for all LLM calls — full prompt/response, token counts, cost, and per-node latency. Opt-in via environment variables, no code changes needed.
 
@@ -220,7 +241,7 @@ LangSmith tracing for all LLM calls — full prompt/response, token counts, cost
 
 ## Tests
 
-139 tests (integration + unit) covering all routers, the workflow runner, and agent memory.
+195 tests (integration + unit + eval) covering all routers, the workflow runner, agent memory, and MCP endpoints.
 
 ```bash
 # One-time: create the test database
@@ -253,6 +274,8 @@ Tests use a dedicated `symphony_test` database (never touches the dev database).
 | `LANGCHAIN_PROJECT` | `symphony` | LangSmith project name |
 | `POSTGRES_PASSWORD` | `postgres` | Docker Compose only |
 | `MESSAGE_LOG_LEVEL` | `MINIMAL` | Floor for message persistence: `MINIMAL` (agent role only), `STANDARD` (user + agent), `VERBOSE` (all roles). Per-agent setting can only raise above this floor. |
+| `MCP_API_KEY` | — | API key for the MCP server. Required to activate the `/mcp` endpoint. If absent, the endpoint returns 503. |
+| `VOYAGE_API_KEY` | — | **Required** for knowledge base embedding (VoyageAI voyage-3-lite). |
 
 ---
 
@@ -332,6 +355,7 @@ All endpoints under `/api/v1`. Auth is a stub — any non-empty Bearer token is 
 | Templates | GET `/templates`, POST `/templates/{id}/instantiate` |
 | Tools | GET `/tools/params` |
 | Knowledge Base | GET/POST `/knowledge`, POST `/knowledge/upload`, DELETE `/knowledge/{id}`, POST `/knowledge/search` |
+| MCP | GET `/mcp/tools`, GET `/mcp/audit-log` |
 | Messages | GET/POST `/messages`, GET/DELETE `/messages/{id}` |
 | Logs | GET/POST `/logs`, GET `/logs/{id}` |
 | WebSocket | `ws://localhost:8000/ws/workflows/{id}/runs/{run_id}?token=<token>` |

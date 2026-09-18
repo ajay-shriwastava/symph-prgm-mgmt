@@ -48,11 +48,13 @@ cd symph-front-end && npm install && npm run dev
 | | Docker | Local Dev |
 |---|---|---|
 | Frontend | http://localhost | http://localhost:5173 |
-| Agents | http://localhost/src/html/agents.html | http://localhost:5173/src/html/agents.html |
-| Workflows | http://localhost/src/html/workflows.html | http://localhost:5173/src/html/workflows.html |
-| Messages | http://localhost/src/html/messages.html | http://localhost:5173/src/html/messages.html |
-| Logs | http://localhost/src/html/logs.html | http://localhost:5173/src/html/logs.html |
-| Agent Config | http://localhost/src/html/memory.html | http://localhost:5173/src/html/memory.html |
+| Agents | http://localhost/agents | http://localhost:5173/agents |
+| Workflows | http://localhost/workflows | http://localhost:5173/workflows |
+| Messages | http://localhost/messages | http://localhost:5173/messages |
+| Logs | http://localhost/logs | http://localhost:5173/logs |
+| Agent Config | http://localhost/agent-config | http://localhost:5173/agent-config |
+| Knowledge Base | http://localhost/knowledge | http://localhost:5173/knowledge |
+| MCP Server | http://localhost/mcp | http://localhost:5173/mcp |
 | API docs | http://localhost:8000/docs | http://127.0.0.1:8000/docs |
 
 ---
@@ -108,6 +110,9 @@ FROM messages ORDER BY created_at DESC LIMIT 20;
 
 -- Logs
 SELECT id, level, message, agent_id, created_at FROM logs ORDER BY created_at DESC LIMIT 20;
+
+-- MCP audit log
+SELECT caller_id, tool_name, params_summary, result_summary, created_at FROM mcp_audit_log ORDER BY created_at DESC LIMIT 20;
 
 -- Reset a stuck workflow run
 UPDATE workflow_runs SET status = 'failed', error = 'manually reset' WHERE status = 'running';
@@ -168,7 +173,7 @@ SELECT * FROM workflow_runs;  -- status, output JSONB, started_at, finished_at
 
 ## Tests
 
-139 integration and unit tests, all passing.
+195 tests (integration + unit + eval), all passing.
 
 ```bash
 # One-time: create test database
@@ -191,7 +196,7 @@ pytest --cov=app --cov-report=term-missing
 - Backend running
 
 ### Step 1 — Configure an agent for Slack
-1. Open the Agent Configuration page (memory.html)
+1. Open the Agent Configuration page (`/agent-config`)
 2. Select an agent from the dropdown
 3. Under **Channels**, add `slack`
 4. Save
@@ -221,6 +226,66 @@ SELECT * FROM messages ORDER BY created_at DESC LIMIT 10;
 - Slack channel ID is used as `session_id` — each channel maintains its own conversation context
 - Falls back to `claude-haiku-4-5-20251001` with a generic prompt if no agent is configured for Slack
 - Bot silently disables itself if tokens are missing or placeholder values
+- When `MCP_API_KEY` is set, each reply is automatically enriched with agent memory and relevant knowledge chunks before the LLM is called — no extra configuration needed
+- LLM replies containing `[REMEMBER key: value]` are automatically persisted to agent memory and stripped before sending to Slack
+
+---
+
+## MCP Server — Testing
+
+### Prerequisites
+- `MCP_API_KEY` set in `.env` (choose any strong random string)
+- Backend running (`alembic upgrade head` run at least once to create the `mcp_audit_log` table)
+
+### Step 1 — Open the MCP Server page
+Navigate to `/mcp` in the UI. You will see:
+- **Server Info** — the endpoint URL and a one-click copy button for the Claude Desktop `mcpServers` config JSON
+- **Available Tools** — all 8 tools listed by category (memory / knowledge)
+- **Audit Log** — paginated table of every MCP tool call with caller identity and timestamp
+
+### Step 2 — Connect Claude Desktop
+1. In the UI, click **Copy Config** in the Server Info card
+2. Paste into your Claude Desktop `claude_desktop_config.json` under `mcpServers`
+3. Restart Claude Desktop — Symphony will appear as an MCP server in the tool list
+4. Ask Claude Desktop: *"What do you know about [topic]?"* — it will call `search_knowledge`
+
+### Step 3 — Test via curl
+```bash
+# List all memory for an agent
+curl -X POST http://localhost:8000/mcp/ \
+  -H "X-MCP-API-Key: <your-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"method":"tools/call","params":{"name":"list_memory","arguments":{"agent_id":"<uuid>","caller_id":"curl:demo"}}}'
+
+# Add a knowledge document
+curl -X POST http://localhost:8000/mcp/ \
+  -H "X-MCP-API-Key: <your-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"method":"tools/call","params":{"name":"add_knowledge","arguments":{"title":"Test Doc","content":"Symphony is an AI orchestration platform.","caller_id":"curl:demo"}}}'
+```
+
+### Step 4 — Verify audit log
+```sql
+SELECT caller_id, tool_name, params_summary, result_summary, created_at
+FROM mcp_audit_log
+ORDER BY created_at DESC LIMIT 20;
+```
+
+### Step 5 — Test context-aware Slack replies
+With `MCP_API_KEY` set and an agent configured for Slack:
+1. Add a memory entry via the Agent Config page (e.g. key: `preferred_currency`, value: `GBP`)
+2. Upload a document on the Knowledge Base page
+3. DM the Symphony bot in Slack — the reply will be grounded in the agent memory and document content
+4. Check the audit log: two new rows appear per message (`list_memory` + `search_knowledge`)
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `/mcp/` returns 503 | `MCP_API_KEY` not set | Add to `.env` and restart backend |
+| `/mcp/` returns 401 | Wrong key in header | Check `X-MCP-API-Key` matches `.env` value |
+| Slack replies not enriched | `MCP_API_KEY` missing | Set key — bot degrades gracefully without it |
+| Migration error on startup | `mcp_audit_log` table missing | Run `alembic upgrade head` |
 
 ---
 

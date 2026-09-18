@@ -12,12 +12,13 @@
 
 ```
 app/
-  main.py            — FastAPI app + router registration + CORS
+  main.py            — FastAPI app + router registration + CORS + MCP mount
+  mcp_server.py      — FastMCP server with 8 tools + McpAuthMiddleware; mcp_asgi_app exported
   database.py        — async engine, AsyncSessionLocal, Base, get_db()
   dependencies.py    — get_current_user (JWT stub)
   models/            — SQLAlchemy ORM models, __init__.py imports all for Alembic
   schemas/           — Pydantic request/response schemas
-  routers/           — APIRouter handlers (agents, agent_config, workflows, messages, logs, workflow_runs)
+  routers/           — APIRouter handlers (agents, agent_config, workflows, messages, logs, workflow_runs, mcp)
   ws_manager.py      — ConnectionManager: connect/disconnect/broadcast per run_id
   workflow_runner.py — WorkflowRunner.compile() + run_workflow() async function
 alembic/
@@ -32,10 +33,13 @@ requirements.txt
 - Log ORM uses `metadata_` (column alias `metadata`) to avoid SQLAlchemy reserved name conflict. Router manually maps it to `LogOut`.
 - AgentMemory upsert: PostgreSQL `INSERT ... ON CONFLICT (agent_id, key) DO UPDATE` via `sqlalchemy.dialects.postgresql.insert`.
 - All list endpoints return `{ items, total, skip, limit }` envelope.
-- Alembic: `0001_initial_schema.py` creates all 5 original tables. `0003` adds workflow.status + workflow_runs table. `0004` adds skills/interaction_rules/guardrails JSONB columns to agents + creates agent_schedules table. Latest migration is `0013_workflow_tool_config.py` — always check `alembic/versions/` before naming a new migration, as the spec-provided name may be stale.
+- Alembic: `0001_initial_schema.py` creates all 5 original tables. `0003` adds workflow.status + workflow_runs table. `0004` adds skills/interaction_rules/guardrails JSONB columns to agents + creates agent_schedules table. Latest migration is `0016_mcp_audit_log.py` — always check `alembic/versions/` before naming a new migration, as the spec-provided name may be stale.
 - WebSocket routes need a SEPARATE APIRouter with no prefix (`ws_router`). Export it from the router module and register it in main.py separately. Do NOT put `@router.websocket` on a prefixed APIRouter.
 - Background tasks needing DB access: use `asyncio.create_task()` with a new `async with AsyncSessionLocal() as bg_db` — never reuse the request-scoped `db` session after it closes.
 - workflow_runs router exports two objects: `router` (prefix `/api/v1/workflows`) and `ws_router` (no prefix, WebSocket at `/ws/workflows/{wf_id}/runs/{run_id}`).
+- MCP server: `mcp_asgi_app` is a `McpAuthMiddleware`-wrapped FastMCP ASGI app; mounted at `/mcp` in main.py via `app.mount()`. Auth middleware checks `X-MCP-API-Key` header against `MCP_API_KEY` env var; returns 503 if key not configured, 401 if wrong.
+- MCP audit log writes are fire-and-forget: `asyncio.create_task(_audit(...))`. Failures swallowed with `logger.warning` so they never block tool responses.
+- MCP tools never store raw content/file bytes in `params_summary` — only metadata (title, content_length, key, top_k, file_type, encoded_length, etc.).
 
 ## Frontend Structure (symph-front-end/src)
 
@@ -43,7 +47,7 @@ requirements.txt
 - `js/api.ts` — all TypeScript interfaces + `apiFetch<T>()` + `WS_BASE`; one function per API endpoint
 - `config.ts` — `PAGE_SIZE`, `MODEL_OPTIONS`, `CHANNELS`, `CHANNEL_LABELS`, `AUTH_TOKEN_KEY`, `DEV_TOKEN`, `TOAST_DURATION_MS`
 - `App.tsx` — all routes lazy-loaded via `React.lazy()`, wrapped in `ErrorBoundary` + `Suspense`
-- `pages/` — one `.tsx` file (or subfolder) per route: `Agents.tsx`, `Workflows.tsx`, `Messages.tsx`, `Logs.tsx`, `AgentConfig.tsx`
+- `pages/` — one `.tsx` file (or subfolder) per route: `Agents.tsx`, `Workflows.tsx`, `Messages.tsx`, `Logs.tsx`, `AgentConfig.tsx`, `McpServer.tsx`
 - `pages/workflows/` — `WorkflowBuilder.tsx`, `NodeConfigPanel.tsx`, `TemplatesSection.tsx`, `graph-helpers.ts`
 - `pages/agent-config/` — `MemoryTab.tsx`, `SchedulesTab.tsx`, `SkillsTab.tsx`, `InteractionRulesTab.tsx`, `GuardrailsTab.tsx`, `types.ts`
 - `components/` — `Nav.tsx`, `Pagination.tsx`, `LoadingRows.tsx`, `ErrorBoundary.tsx`
@@ -63,13 +67,16 @@ requirements.txt
 - **workflow-tool-config** (2026-08-11): Migration 0013 adds `tool_config JSONB NOT NULL DEFAULT '{}'` to workflows. Two-level config hierarchy: `.env` (infra/secrets) → `workflow.tool_config` (operational params per workflow instance). `TOOL_PARAMS` dict in `app/tools/__init__.py` is the single source of truth for configurable params, served via `GET /api/v1/tools/params`. Pipeline tools receive config via state merge in `_make_tool_node`. LLM tools receive config via `ContextVar[dict]` in `app/tools/tool_context.py`, set/reset around `react_agent.ainvoke()` with token pattern. Templates pre-populate `tool_config_defaults` on instantiation. New route: `/config/workflows/:id` (WorkflowConfig page — flat audit view). Workflow Builder NodeConfigPanel shows param fields inline when a node is selected. `WorkflowRunner.compile()` and `run_workflow()` both accept `tool_config: dict | None = None`.
 
 - **knowledge-base-file-upload** (2026-09-17): No DB migration. New endpoint `POST /api/v1/knowledge/upload` added to `app/routers/knowledge.py` (above the `/{entry_id}` DELETE route to avoid path conflicts). Accepts `multipart/form-data` with `file: UploadFile` + `title: str = Form(...)`. PDF parsed with `pypdf.PdfReader(io.BytesIO(raw_bytes))`; .txt decoded as UTF-8. Both paths feed into existing `chunk_text` → `embed` → raw SQL INSERT pipeline. 400 on unsupported ext or empty extraction; 500 on parse exception. `pypdf>=4.0.0` added to `requirements.txt` (import is local inside the endpoint to keep it optional). Frontend: `uploadKnowledge(file, title)` added to `api.ts` using raw `fetch()` with `FormData` (no Content-Type header — browser sets multipart boundary). `KnowledgeBase.tsx` gains "Upload File" section above existing "Ingest Document" form; file input has `accept=".pdf,.txt"` and an associated `<label>`; Upload button disabled while uploading or when file/title missing; `fileInputRef.current.value = ""` used to clear the file input after success.
+- **mcp-server** (2026-09-18): Migration `0016_mcp_audit_log.py` adds `mcp_audit_log` table (caller_id VARCHAR(255), tool_name VARCHAR(100), agent_id UUID nullable no-FK, params_summary JSONB, result_summary TEXT, created_at TIMESTAMPTZ). `app/mcp_server.py` — FastMCP server with 8 tools (4 memory + 4 knowledge), `McpAuthMiddleware` wraps ASGI app, mounted at `/mcp`. `app/routers/mcp.py` — `GET /api/v1/mcp/tools` (static list) + `GET /api/v1/mcp/audit-log` (paginated, caller_id filter). `app/slack_bot.py` enhanced: `_run_agent_direct` accepts `slack_user_id`, calls `list_memory` + `search_knowledge` concurrently via FastMCP Client before LLM, parses `[REMEMBER key: value]` post-response + calls `set_memory`, graceful degradation when `MCP_API_KEY` absent. `fastmcp>=2.0.0` added to `requirements.txt`. Frontend: `McpServer.tsx` at `/mcp` (Server Info card with Claude Desktop config copy button, Available Tools table grouped by category, Audit Log table with caller_id filter + pagination). `getMcpTools` + `getMcpAuditLog` added to `api.ts`. Route at `/mcp` + nav link ("MCP Server", `ti-server`) registered.
 
 ## API Naming Convention
 
 - Base path: `/api/v1`
 - WebSocket base path: `/ws`
+- MCP endpoint: `/mcp` (Streamable HTTP — FastMCP ASGI mount, NOT under `/api/v1`)
 - All REST endpoints require `Authorization: Bearer <token>`
 - WebSocket auth: `?token=<jwt>` query param
+- MCP auth: `X-MCP-API-Key` header
 - 404 on missing resource, 422 on Pydantic validation failure, 204 on successful delete
 
 ## Dual-Wrapper Tool Pattern
